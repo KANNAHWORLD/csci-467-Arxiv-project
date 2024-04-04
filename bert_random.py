@@ -7,6 +7,7 @@ from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
 import spacy
+import random
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
@@ -19,7 +20,9 @@ LEARNING_RATE = 1e-5
 TRAIN_MODEL = True
 PREPROCESS_DATA = True
 
-# Use test flag to only use 1% of each dataset
+SEED = 42
+
+# Use test flag to only use 3 examples for each split
 TEST = True
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
@@ -32,43 +35,90 @@ def fix_labels(instance):
 
 # Tokenize random sentences
 def tokenize_batch_random(batch):
-    # Create list of sentences
-    sentences = batch['text'].split('.')
-    print(sentences)
-    exit()
+    # Create list of sentences using spacy
+    nlp = spacy.load("en_core_web_sm")
 
+    # Keep track of outputs
+    output_texts = []
 
-    return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
+    # Save each row to list
+    examples = batch['text']
+    if isinstance(examples, str):
+        examples = [examples]
+
+    # Iterate
+    for example in examples:
+        doc = nlp(example)
+        sentences = list(doc.sents)
+
+        # Remove the first 512 tokens, since already present in other half of tokenized data
+        removed_tokens = 0
+        num_removed_sentences = 0
+        while removed_tokens < 512 and num_removed_sentences < len(sentences):
+            num_tokens = len(tokenizer.tokenize(str(sentences[num_removed_sentences])))
+            removed_tokens += num_tokens 
+            num_removed_sentences += 1
+        sentences = sentences[num_removed_sentences:]
+
+        # Select sentence indexes randomly until 512 tokens reached
+        sent_idxs = list(range(len(sentences))) # all indexes
+        selected_idxs = []
+        num_tokens_so_far = 0
+        while num_tokens_so_far <= (512-2) and sent_idxs:
+            # Choose an index and remove so it's not picked again
+            idx = random.choice(sent_idxs)
+            sent_idxs.remove(idx)
+            # Find sentence length
+            curr_sentence = str(sentences[idx])
+            num_tokens_so_far += len(tokenizer.tokenize(curr_sentence))
+            selected_idxs.append(idx)
+        
+        # Order the indexes, and create one string
+        output_text = ''
+        reordered_idxs = sorted(selected_idxs)
+        for idx in reordered_idxs:
+            output_text += str(sentences[idx]) + ' '
+        output_texts.append(output_text)
+    
+    return tokenizer(output_texts, max_length=512, truncation=True, return_tensors='pt')
 
 def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
 
 def load_process_data_from_hub():
-    split = '[:1%]' if TEST else ''
-    train_data = load_dataset(DATASET_NAME, "no_ref", split=f'train{split}')
-    test_data = load_dataset(DATASET_NAME, "no_ref", split=f'test{split}')
-    val_data = load_dataset(DATASET_NAME, "no_ref", split=f'validation{split}')
+    split = '[:3]' if TEST else ''
+    train_data_fixed = load_dataset(DATASET_NAME, "no_ref", split=f'train{split}')
+    test_data_fixed = load_dataset(DATASET_NAME, "no_ref", split=f'test{split}')
+    val_data_fixed = load_dataset(DATASET_NAME, "no_ref", split=f'validation{split}')
 
-    train_data = train_data.map(fix_labels)
-    test_data = test_data.map(fix_labels)
-    val_data = val_data.map(fix_labels)
+    train_data_fixed = train_data_fixed.map(fix_labels)
+    test_data_fixed = test_data_fixed.map(fix_labels)
+    val_data_fixed = val_data_fixed.map(fix_labels)
 
-    train_data_random = train_data.map(tokenize_batch_random, batched=False)
 
     # Preprocessing
-    train_data = train_data.map(tokenize_batch, batched=False)
-    print(train_data_random)
-    print('------------------------------\n\n\n')
-    print(train_data)
+    train_data = train_data_fixed.map(tokenize_batch, batched=False)
+    train_data_random = train_data_fixed.map(tokenize_batch_random, batched=False)
+
+    test_data = test_data_fixed.map(tokenize_batch)
+    test_data_random = test_data_fixed.map(tokenize_batch_random)
+    
+    val_data = val_data_fixed.map(tokenize_batch)
+    val_data_random = val_data_fixed.map(tokenize_batch_random)
+
+    print(train_data[0]['text'][:1000])
+    print('\n\n\n------RANDOM---------\n\n\n')
+    print(train_data_random[0]['text'][:1000])
     exit()
-    test_data = test_data.map(tokenize_batch)
-    val_data = val_data.map(tokenize_batch)
 
     ## Save the tokenized datasets
     test_str = 'test_' if TEST else ''
     train_data.save_to_disk(f'./tokenized_random_{test_str}data/train')
     test_data.save_to_disk(f'./tokenized_random_{test_str}data/test')
     val_data.save_to_disk(f'./tokenized_random_{test_str}data/val')
+    train_data_random.save_to_disk(f'./tokenized_random_{test_str}data/train_random')
+    test_data_random.save_to_disk(f'./tokenized_random_{test_str}data/test_random')
+    val_data_random.save_to_disk(f'./tokenized_random_{test_str}data/val_random')
 
 def train(train_loader, test_loader, val_loader, model, device):
 
@@ -97,6 +147,8 @@ def train(train_loader, test_loader, val_loader, model, device):
     return model
 
 if __name__ == '__main__':
+    random.seed(SEED)
+
     model = AutoModel.from_pretrained(MODEL_NAME)
     global tokenizer 
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
@@ -111,6 +163,9 @@ if __name__ == '__main__':
     train_data = load_from_disk(f'./tokenized_random_{test_str}data/train')
     test_data = load_from_disk(f'./tokenized_random_{test_str}data/test')
     val_data = load_from_disk(f'./tokenized_random_{test_str}data/val')
+    train_data_random = load_from_disk(f'./tokenized_random_{test_str}data/train_random')
+    test_data_random = load_from_disk(f'./tokenized_random_{test_str}data/test_random')
+    val_data_random = load_from_disk(f'./tokenized_random_{test_str}data/val_random')
 
     train_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
     test_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
