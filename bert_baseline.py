@@ -34,9 +34,9 @@ def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
 
 def load_process_data_from_hub():
-    train_data = load_dataset(DATASET_NAME, split='train')
-    test_data = load_dataset(DATASET_NAME, split='test')
-    val_data = load_dataset(DATASET_NAME, split='validation')
+    train_data = load_dataset(DATASET_NAME, "no_ref", split='train')
+    test_data = load_dataset(DATASET_NAME, "no_ref", split='test')
+    val_data = load_dataset(DATASET_NAME, "no_ref", split='validation')
 
     train_data = train_data.map(fix_labels)
     test_data = test_data.map(fix_labels)
