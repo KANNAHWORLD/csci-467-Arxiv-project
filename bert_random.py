@@ -1,4 +1,4 @@
-from datasets import load_dataset, load_from_disk
+from datasets import load_dataset, load_from_disk, Dataset
 import numpy as np
 from transformers import AutoModel, AutoTokenizer, AutoModelForSequenceClassification, get_scheduler
 import torch
@@ -17,7 +17,7 @@ DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 PREPROCESS_DATA = True
 
 SEED = 42
@@ -106,11 +106,6 @@ def load_process_data_from_hub():
     val_data = val_data_fixed.map(tokenize_batch)
     val_data_random = val_data_fixed.map(tokenize_batch_random)
 
-    print(train_data[0]['text'][:1000])
-    print('\n\n\n------RANDOM---------\n\n\n')
-    print(train_data_random[0]['text'][:1000])
-    exit()
-
     ## Save the tokenized datasets
     test_str = 'test_' if TEST else ''
     train_data.save_to_disk(f'./tokenized_random_{test_str}data/train')
@@ -146,6 +141,41 @@ def train(train_loader, test_loader, val_loader, model, device):
 
     return model
 
+# Helper function that concatenates tokenized data with tokenized random data
+def concatenate_helper(data, data_random):
+    # Initialize an empty dictionary to store concatenated representations
+    concatenated_examples = {
+        'input_ids': [],
+        'attention_mask': [],
+        'labels': []
+    }
+
+    # Iterate
+    for example, example_random in zip(data, data_random):
+        # Convert to tensors to concatenate
+        input_ids_tensor = torch.tensor(example['input_ids'])
+        input_ids_random_tensor = torch.tensor(example_random['input_ids'])
+        attention_mask_tensor = torch.tensor(example['attention_mask'])
+        attention_mask_random_tensor = torch.tensor(example_random['attention_mask'])
+        # Concatenate representations
+        concatenated_examples['input_ids'].append(torch.cat([input_ids_tensor, input_ids_random_tensor], dim=1))
+        concatenated_examples['attention_mask'].append(torch.cat([attention_mask_tensor, attention_mask_random_tensor], dim=1))
+        # Add label
+        concatenated_examples['labels'].append(example['labels'])
+
+    # Convert lists to tensors
+    concatenated_examples['input_ids'] = torch.stack(concatenated_examples['input_ids'])
+    concatenated_examples['attention_mask'] = torch.stack(concatenated_examples['attention_mask'])
+
+    # Create dataset
+    final_data = Dataset.from_dict(concatenated_examples)
+
+    # Set format
+    final_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
+
+    return final_data
+
+
 if __name__ == '__main__':
     random.seed(SEED)
 
@@ -167,13 +197,14 @@ if __name__ == '__main__':
     test_data_random = load_from_disk(f'./tokenized_random_{test_str}data/test_random')
     val_data_random = load_from_disk(f'./tokenized_random_{test_str}data/val_random')
 
-    train_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
-    test_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
-    val_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
+    full_train_data = concatenate_helper(train_data, train_data_random)
+    full_test_data = concatenate_helper(train_data, train_data_random)
+    full_val_data = concatenate_helper(train_data, train_data_random)
     
-    train_loader = DataLoader(train_data, batch_size=BATCH_SIZE, shuffle=True)
-    test_loader = DataLoader(test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
-    val_loader = DataLoader(val_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
+    train_loader = DataLoader(full_train_data, batch_size=BATCH_SIZE, shuffle=True)
+    test_loader = DataLoader(full_test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
+    val_loader = DataLoader(full_val_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
+
 
     if TRAIN_MODEL:
         model = train(train_loader, test_loader, val_loader, model, device)
