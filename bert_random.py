@@ -6,6 +6,7 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
+import spacy
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
