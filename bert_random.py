@@ -21,7 +21,7 @@ BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 MLP_HIDDEN_SIZE = 512
 TRAIN_MODEL = True
-PREPROCESS_DATA = False
+PREPROCESS_DATA = True
 
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
@@ -41,6 +41,8 @@ def fix_labels(instance):
 def tokenize_batch_random(batch):
     # Create list of sentences using spacy
     nlp = spacy.load("en_core_web_sm")
+    # Set max length limit (there was a document of size 2344399)
+    nlp.max_length = 3000000
 
     # Keep track of outputs
     output_texts = []
