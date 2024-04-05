@@ -4,6 +4,7 @@ from transformers import AutoModel, AutoTokenizer, AutoModelForSequenceClassific
 import torch
 from torch.utils.data import DataLoader
 from torch.optim import AdamW
+import torch.nn as nn
 from tqdm import tqdm
 from sklearn import metrics
 import spacy
@@ -12,18 +13,21 @@ import random
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16 when loading trained model
+MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16.pt
 DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-TRAIN_MODEL = False
-PREPROCESS_DATA = True
+MLP_HIDDEN_SIZE = 512
+TRAIN_MODEL = True
+PREPROCESS_DATA = False
 
+SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
 
 # Use test flag to only use 3 examples for each split
-TEST = True
+TEST = False
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
@@ -124,22 +128,45 @@ def train(train_loader, test_loader, val_loader, model, device):
     p_bar = tqdm(range(num_training_steps))
     model.train()
 
+    # Define 2-layer MLP
+    bert_output_size = 768 * 2
+    num_outputs = len(ORIGINAL_LABELS)
+    mlp = nn.Sequential(
+        nn.Linear(bert_output_size, MLP_HIDDEN_SIZE),
+        nn.ReLU(),
+        nn.Linear(MLP_HIDDEN_SIZE, num_outputs)
+    ).to(device)
+
+    criterion = nn.CrossEntropyLoss()
+
     for epoch in range(NUM_EPOCHS):
         for batch in train_loader:
             batch = {key: batch[key].to(device).squeeze() for key in batch}
             optimizer.zero_grad()
-            outputs = model(input_ids=batch['input_ids'], attention_mask=batch['attention_mask'], labels=batch['labels'])
-            loss = outputs.loss
+            # Model output for first 512 tokens, random 512 tokens
+            _, truncated_outputs = model(input_ids=batch['input_ids'][:, 0, :], attention_mask=batch['attention_mask'][:, 0, :], return_dict=False)
+            _, random_outputs = model(input_ids=batch['input_ids'][:, 1, :], attention_mask=batch['attention_mask'][:, 1, :], return_dict=False)
+            # Concatenate
+            concatenated_outputs = torch.cat((truncated_outputs, random_outputs), dim=1)
+            # Take average
+            # averaged_outputs = torch.mean(concatenated_outputs, dim=1)
+            # This is the input to the MLP
+            mlp_output = mlp(concatenated_outputs)
+            # Calculate loss
+            loss = criterion(mlp_output, batch['labels'])
             loss.backward()
             optimizer.step()
             lr_scheduler.step()
             optimizer.zero_grad()
             p_bar.update(1)
-            p_bar.set_postfix({'loss': loss})
+            p_bar.set_postfix({'loss': loss.item()})
     
-    model.save_pretrained(f'./models/bert_random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}')
+    test_str = 'test_' if TEST else ''
+    model.save_pretrained(f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}')
+    torch.save(mlp.state_dict(), f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}.pt')
 
-    return model
+    # Return model and mlp
+    return model, mlp
 
 # Helper function that concatenates tokenized data with tokenized random data
 def concatenate_helper(data, data_random):
@@ -158,8 +185,8 @@ def concatenate_helper(data, data_random):
         attention_mask_tensor = torch.tensor(example['attention_mask'])
         attention_mask_random_tensor = torch.tensor(example_random['attention_mask'])
         # Concatenate representations
-        concatenated_examples['input_ids'].append(torch.cat([input_ids_tensor, input_ids_random_tensor], dim=1))
-        concatenated_examples['attention_mask'].append(torch.cat([attention_mask_tensor, attention_mask_random_tensor], dim=1))
+        concatenated_examples['input_ids'].append(torch.cat([input_ids_tensor, input_ids_random_tensor]))
+        concatenated_examples['attention_mask'].append(torch.cat([attention_mask_tensor, attention_mask_random_tensor]))
         # Add label
         concatenated_examples['labels'].append(example['labels'])
 
@@ -176,14 +203,25 @@ def concatenate_helper(data, data_random):
     return final_data
 
 
+def set_random_seeds(seed):
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)  # if you are using GPU
+    torch.backends.cudnn.deterministic = True
+    torch.backends.cudnn.benchmark = False
+
 if __name__ == '__main__':
-    random.seed(SEED)
+    if SET_SEEDS:
+        set_random_seeds(SEED)
 
     model = AutoModel.from_pretrained(MODEL_NAME)
     global tokenizer 
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
     model = model.to(device)
+
+    mlp = None
 
     if PREPROCESS_DATA:
         load_process_data_from_hub()
@@ -205,9 +243,21 @@ if __name__ == '__main__':
     test_loader = DataLoader(full_test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
     val_loader = DataLoader(full_val_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
 
-
+    
     if TRAIN_MODEL:
-        model = train(train_loader, test_loader, val_loader, model, device)
+        model, mlp = train(train_loader, test_loader, val_loader, model, device)
+    else:
+        # load in MLP
+        bert_output_size = 768 * 2
+        num_outputs = len(ORIGINAL_LABELS)
+        mlp = nn.Sequential(
+        nn.Linear(bert_output_size, MLP_HIDDEN_SIZE),
+        nn.ReLU(),
+        nn.Linear(MLP_HIDDEN_SIZE, num_outputs)
+        ).to(device)
+        mlp.load_state_dict(torch.load(MLP_NAME))
+    
+    mlp.eval()
     
     # evaluate on validation set
     model.eval()
@@ -217,9 +267,19 @@ if __name__ == '__main__':
     for batch in tqdm(test_loader):
         batch = {key: batch[key].to(device).squeeze() for key in batch}
         with torch.no_grad():
-            outputs = model(**batch)
+            # Model output for first 512 tokens, random 512 tokens
+            _, truncated_outputs = model(input_ids=batch['input_ids'][:, 0, :], attention_mask=batch['attention_mask'][:, 0, :], return_dict=False)
+            _, random_outputs = model(input_ids=batch['input_ids'][:, 1, :], attention_mask=batch['attention_mask'][:, 1, :], return_dict=False)
+            # Concatenate
+            concatenated_output = torch.cat((truncated_outputs, random_outputs), dim=1)
+            # Average pooling
+            #averaged_output = torch.mean(concatenated_output, dim=1)
+            # Pass averaged output through MLP
+            mlp_output = mlp(concatenated_output)
+            # Get predicted labels
+            _, predicted_labels = torch.max(mlp_output, 1)
         val_labels.extend(batch['labels'].cpu().numpy().tolist())
-        val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
+        val_preds.extend(predicted_labels.cpu().numpy().tolist())
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
