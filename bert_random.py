@@ -13,15 +13,15 @@ import random
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16 when loading trained model
-MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16.pt
+MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16_hidden_512 when loading trained model
+MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16_hidden_512.pt
 DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-MLP_HIDDEN_SIZE = 512
+MLP_HIDDEN_SIZE = 1024
 TRAIN_MODEL = True
-PREPROCESS_DATA = True
+PREPROCESS_DATA = False
 
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
@@ -41,8 +41,8 @@ def fix_labels(instance):
 def tokenize_batch_random(batch):
     # Create list of sentences using spacy
     nlp = spacy.load("en_core_web_sm")
-    # Set max length limit (there was a document of size 2344399)
-    nlp.max_length = 3000000
+    # Set max length limit (max document size is 2553768)
+    nlp.max_length = 2750000
 
     # Keep track of outputs
     output_texts = []
@@ -85,7 +85,6 @@ def tokenize_batch_random(batch):
         for idx in reordered_idxs:
             output_text += str(sentences[idx]) + ' '
         output_texts.append(output_text)
-    
     return tokenizer(output_texts, max_length=512, truncation=True, return_tensors='pt')
 
 def tokenize_batch(batch):
@@ -164,11 +163,20 @@ def train(train_loader, test_loader, val_loader, model, device):
             p_bar.set_postfix({'loss': loss.item()})
     
     test_str = 'test_' if TEST else ''
-    model.save_pretrained(f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}')
-    torch.save(mlp.state_dict(), f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}.pt')
+    model.save_pretrained(f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}')
+    torch.save(mlp.state_dict(), f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.pt')
 
     # Return model and mlp
     return model, mlp
+
+
+# Helper functino to pad to a tensor to reach the expected size
+def pad_tensor(tensor, expected_size):
+    if tensor.size(1) < expected_size:
+        padding = torch.zeros((1, expected_size - tensor.size(1)), dtype=tensor.dtype, device=tensor.device)
+        tensor = torch.cat([tensor, padding], dim=1)
+    return tensor
+
 
 # Helper function that concatenates tokenized data with tokenized random data
 def concatenate_helper(data, data_random):
@@ -180,13 +188,21 @@ def concatenate_helper(data, data_random):
     }
 
     # Iterate
-    for example, example_random in zip(data, data_random):
+    for example, example_random in tqdm(zip(data, data_random), total=len(data)):
         # Convert to tensors to concatenate
         input_ids_tensor = torch.tensor(example['input_ids'])
         input_ids_random_tensor = torch.tensor(example_random['input_ids'])
         attention_mask_tensor = torch.tensor(example['attention_mask'])
         attention_mask_random_tensor = torch.tensor(example_random['attention_mask'])
+        
+        # if input_ids_random_tensor.shape[1] != 512:
+        #     print(f'Input Ids Random: {input_ids_random_tensor.shape}')
+        #     print(f'Attention Mask Random: {attention_mask_random_tensor.shape}\n')
+
         # Concatenate representations
+        # Pad to random if needed
+        input_ids_random_tensor = pad_tensor(input_ids_random_tensor, 512)
+        attention_mask_random_tensor = pad_tensor(attention_mask_random_tensor, 512)
         concatenated_examples['input_ids'].append(torch.cat([input_ids_tensor, input_ids_random_tensor]))
         concatenated_examples['attention_mask'].append(torch.cat([attention_mask_tensor, attention_mask_random_tensor]))
         # Add label
@@ -259,10 +275,10 @@ if __name__ == '__main__':
         ).to(device)
         mlp.load_state_dict(torch.load(MLP_NAME))
     
-    mlp.eval()
     
     # evaluate on validation set
     model.eval()
+    mlp.eval()
     val_labels = []
     val_preds = []
 
