@@ -13,14 +13,14 @@ import random
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16_hidden_512 when loading trained model
-MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16_hidden_512.pt
+MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16 when loading trained model
+MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16.pt
 DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 MLP_HIDDEN_SIZE = 1024
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
@@ -316,8 +316,10 @@ if __name__ == '__main__':
     print(f'Batch Size: {BATCH_SIZE}')
     print(f'Hidden Layer Size: {MLP_HIDDEN_SIZE}\n')
 
-    print("Num samples", len(val_loader) * BATCH_SIZE)
-    print("Num samples", len(val_labels))
+    eval_str = 'val' if USE_VAL_SET else 'test'
+    print(f'Evaluating on {eval_str} set:')
+    print("Num samples", len(eval_loader) * BATCH_SIZE)
+    # print("Num samples", len(eval_labels))
     print("Accuracy: ", accuracy)
     print("Precision: ", precision)
     print("Recall: ", recall)
