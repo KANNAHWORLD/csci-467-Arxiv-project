@@ -23,6 +23,9 @@ MLP_HIDDEN_SIZE = 1024
 TRAIN_MODEL = True
 PREPROCESS_DATA = False
 
+# If true, use val set (else, use test set)
+USE_VAL_SET = True 
+
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
 
@@ -276,13 +279,16 @@ if __name__ == '__main__':
         mlp.load_state_dict(torch.load(MLP_NAME))
     
     
-    # evaluate on validation set
+    
+
     model.eval()
     mlp.eval()
     val_labels = []
     val_preds = []
 
-    for batch in tqdm(test_loader):
+    # evaluate on chosen set
+    eval_loader = val_loader if USE_VAL_SET else test_loader
+    for batch in tqdm(eval_loader):
         batch = {key: batch[key].to(device).squeeze() for key in batch}
         with torch.no_grad():
             # Model output for first 512 tokens, random 512 tokens
@@ -303,6 +309,12 @@ if __name__ == '__main__':
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
     recall = metrics.recall_score(val_labels, val_preds, average='macro')
     f1 = metrics.f1_score(val_labels, val_preds, average='macro')
+
+    print('Hyperparameters: ')
+    print(f'Epochs: {NUM_EPOCHS}')
+    print(f'Learning Rate: {LEARNING_RATE}')
+    print(f'Batch Size: {BATCH_SIZE}')
+    print(f'Hidden Layer Size: {MLP_HIDDEN_SIZE}\n')
 
     print("Num samples", len(val_loader) * BATCH_SIZE)
     print("Num samples", len(val_labels))
