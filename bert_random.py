@@ -13,14 +13,16 @@ import random
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16 when loading trained model
-MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16.pt
+# if no MODEL_NAME provided, defaults to bert-base-uncased
+MODEL_NAME = '' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16_hidden_512 when loading trained model
+MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16_hidden_512.pt
 DATASET_NAME = 'ccdv/arxiv-classification'
+# If using a saved MODEL_NAME or MLP_NAME above, still make sure to update these to match:
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-MLP_HIDDEN_SIZE = 1024
-TRAIN_MODEL = False
+MLP_HIDDEN_SIZE = 512
+TRAIN_MODEL = True
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
@@ -33,6 +35,13 @@ SEED = 42
 TEST = False
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
+
+
+
+
+if len(MODEL_NAME) == 0:
+    MODEL_NAME = 'bert-base-uncased'
+
 
 def fix_labels(instance):
     classConversion = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
