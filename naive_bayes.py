@@ -3,11 +3,14 @@ import numpy as np
 import pandas as pd
 from collections import Counter, defaultdict
 from datasets import load_dataset
+from matplotlib import pyplot as plt
 
 from sklearn.naive_bayes import GaussianNB
 from sklearn.feature_extraction.text import HashingVectorizer
 
 NAME_DATASET = "ccdv/arxiv-classification"
+
+ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
 # 0 is for original Math classes, 1 is for original CS classes
 classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
@@ -18,9 +21,13 @@ validation_data = load_dataset(NAME_DATASET, split = "validation")
 test_data = load_dataset(NAME_DATASET, split = "test")
 
 print("=== Data Loaded, Processing ===")
-train_y = [classConversion[x] for x in train_data['label']]
-test_y = [classConversion[x] for x in test_data['label']]
-validation_y = [classConversion[x] for x in validation_data['label']]
+# train_y = [classConversion[x] for x in train_data['label']]
+# test_y = [classConversion[x] for x in test_data['label']]
+# validation_y = [classConversion[x] for x in validation_data['label']]
+train_y = train_data['label']
+test_y = test_data['label']
+validation_y = validation_data['label']
+
 
 print("=== Data Processed, Vectorizing ===")
 vectorizer = HashingVectorizer(n_features=30000)
@@ -43,6 +50,24 @@ features = [10, 50, 100, 200, 500, 1000, 2000, 20000]
 training_accurracy = []
 validation_accurracy = []
 
+# Obtain the counts of each label in the dataset
+distribution = Counter(train_y)
+distribution.update(validation_y)
+distribution.update(test_y)
+distribution = distribution.items()
+distribution.sort(key=lambda x: x[0])
+distribution = [x[1] for x in distribution]
+
+plt.figure(figsize=(10, 6))
+plt.bar(ORIGINAL_LABELS, distribution)
+plt.xlabel('Original Labels', fontsize=15)
+plt.ylabel('Occurrences', fontsize=15)
+plt.title('Occurrences in Dataset by Original Label', fontsize=20)
+# plt.show()
+plt.savefig('NB_occurrences_original_labels.png')
+
+training_accuracy = []
+validation_accuracy = []
 
 for vectorSize in features:
     print(f"Starting feature size: {vectorSize}")
@@ -63,5 +88,15 @@ for vectorSize in features:
     
     print(f"Finished feature size: {vectorSize}")
 
-print(f"Training accuracies: {training_accurracy}")
-print(f"Validation accuracies: {validation_accurracy}")
+plt.plot(features, validation_accuracy, marker='o', label='Validation Accuracy')
+plt.plot(features, training_accuracy, marker='o', label='Training Accuracy')
+plt.ylabel("Accuracy Score")
+plt.xlabel("Feature Vector Size")
+plt.legend()
+plt.title('Accuracy vs. Feature Vector Size')
+
+plt.savefig('NB_accuracy_vs_feature_vector_size.png')
+
+print(f'Features: {features}')
+print(f'Training Accuracies: {training_accuracy}')
+print(f'Validation Accuracies: {validation_accuracy}')
