@@ -48,19 +48,20 @@ training_accurracy = []
 validation_accurracy = []
 
 # Obtain the counts of each label in the dataset
-distribution = Counter(train_y)
-distribution.update(validation_y)
-distribution.update(test_y)
-distribution = list(distribution.keys())
-distribution.sort()
-distribution = [distribution[key] for key in distribution]
+distribution = [0] * 11
+
+for label in train_y:
+    distribution[label] += 1
+for label in validation_y:
+    distribution[label] += 1
+for label in test_y:
+    distribution[label] += 1
 
 plt.figure(figsize=(10, 6))
 plt.bar(ORIGINAL_LABELS, distribution)
 plt.xlabel('Original Labels', fontsize=15)
 plt.ylabel('Occurrences', fontsize=15)
 plt.title('Occurrences in Dataset by Original Label', fontsize=20)
-# plt.show()
 plt.savefig('NB/NB_occurrences_original_labels.png')
 
 training_accuracy = []
@@ -78,12 +79,24 @@ for vectorSize in features:
     # Train Model
     gnb = GaussianNB()
     gnb.fit(train_X.toarray(), train_y)
-    
+
+    # Calculating the scores
+    train_score = gnb.score(train_X.toarray(), train_y)
+    validation_score = gnb.score(validation_X.toarray(), validation_y)
+
+    # Printing scores
+    print("Train score: ", train_score)
+    print("Validation score: ", validation_score)
+
     # Append accurracies
-    training_accurracy.append(gnb.score(train_X.toarray(), train_y))
-    validation_accurracy.append(gnb.score(validation_X.toarray(), validation_y))
-    
+    training_accurracy.append(train_score)
+    validation_accurracy.append(validation_score)
+
     print(f"Finished feature size: {vectorSize}")
+
+print("=== Finished Training ===")
+print("Training accuracies: ", training_accuracy)
+print("Validation accuracies: ", validation_accuracy)
 
 plt.plot(features, validation_accuracy, marker='o', label='Validation Accuracy')
 plt.plot(features, training_accuracy, marker='o', label='Training Accuracy')
