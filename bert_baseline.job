@@ -16,5 +16,5 @@ module load python
 
 eval "$(conda shell.bash hook)"
 deactivate
-source csci_467/bin/activate
+source csci467/bin/activate
 python3 bert_baseline_lime_args.py --input=input/input_${SLURM_ARRAY_TASK_ID}
