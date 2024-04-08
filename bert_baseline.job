@@ -8,7 +8,7 @@
 #SBATCH --account=robinjia_1265
 #SBATCH --partition=gpu
 #SBATCH --gres=gpu:1
-#SBATCH --array=1-30
+#SBATCH --array=1-12
 
 module purge
 module load gcc/11.3.0
