@@ -89,8 +89,8 @@ for vectorSize in features:
     print("Validation score: ", validation_score)
 
     # Append accurracies
-    training_accurracy.append(train_score)
-    validation_accurracy.append(validation_score)
+    training_accuracy.append(train_score)
+    validation_accuracy.append(validation_score)
 
     print(f"Finished feature size: {vectorSize}")
 
