@@ -52,7 +52,7 @@ distribution = Counter(train_y)
 distribution.update(validation_y)
 distribution.update(test_y)
 distribution = list(distribution.keys())
-distribution.sort(key=lambda x: x[0])
+distribution.sort()
 distribution = [distribution[key] for key in distribution]
 
 plt.figure(figsize=(10, 6))
