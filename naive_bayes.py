@@ -21,9 +21,6 @@ validation_data = load_dataset(NAME_DATASET, split = "validation")
 test_data = load_dataset(NAME_DATASET, split = "test")
 
 print("=== Data Loaded, Processing ===")
-# train_y = [classConversion[x] for x in train_data['label']]
-# test_y = [classConversion[x] for x in test_data['label']]
-# validation_y = [classConversion[x] for x in validation_data['label']]
 train_y = train_data['label']
 test_y = test_data['label']
 validation_y = validation_data['label']
@@ -54,9 +51,9 @@ validation_accurracy = []
 distribution = Counter(train_y)
 distribution.update(validation_y)
 distribution.update(test_y)
-distribution = distribution.items()
+distribution = list(distribution.keys())
 distribution.sort(key=lambda x: x[0])
-distribution = [x[1] for x in distribution]
+distribution = [distribution[key] for key in distribution]
 
 plt.figure(figsize=(10, 6))
 plt.bar(ORIGINAL_LABELS, distribution)
