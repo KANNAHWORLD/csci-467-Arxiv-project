@@ -7,7 +7,7 @@ from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
 
-## Note: expects directories called 'tokenized_data' and 'models'
+## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
 # to exist and be in the same directory as this script
 
 MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
@@ -15,11 +15,18 @@ DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 PREPROCESS_DATA = False
 
+USE_ORIGINAL_LABELS = True 
+ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
+
 def fix_labels(instance):
-    classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
+    if USE_ORIGINAL_LABELS:
+        classConversion = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
+    else:
+        classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
+    
     instance['labels'] = classConversion[instance['label']]
     return instance
 
@@ -27,9 +34,9 @@ def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
 
 def load_process_data_from_hub():
-    train_data = load_dataset(DATASET_NAME, split='train')
-    test_data = load_dataset(DATASET_NAME, split='test')
-    val_data = load_dataset(DATASET_NAME, split='validation')
+    train_data = load_dataset(DATASET_NAME, "no_ref", split='train')
+    test_data = load_dataset(DATASET_NAME, "no_ref", split='test')
+    val_data = load_dataset(DATASET_NAME, "no_ref", split='validation')
 
     train_data = train_data.map(fix_labels)
     test_data = test_data.map(fix_labels)
@@ -41,9 +48,10 @@ def load_process_data_from_hub():
     val_data = val_data.map(tokenize_batch)
 
     ## Save the tokenized datasets
-    train_data.save_to_disk('./tokenized_data/train')
-    test_data.save_to_disk('./tokenized_data/test')
-    val_data.save_to_disk('./tokenized_data/val')
+    label_str = 'original' if USE_ORIGINAL_LABELS else 'binary'
+    train_data.save_to_disk(f'./tokenized_{label_str}_data/train')
+    test_data.save_to_disk(f'./tokenized_{label_str}_data/test')
+    val_data.save_to_disk(f'./tokenized_{label_str}_data/val')
 
 def train(train_loader, test_loader, val_loader, model, device):
 
@@ -66,11 +74,15 @@ def train(train_loader, test_loader, val_loader, model, device):
             optimizer.zero_grad()
             p_bar.update(1)
             p_bar.set_postfix({'loss': loss})
-    model.save_pretrained(f'./models/bert_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}')
+    
+    label_str = 'original' if USE_ORIGINAL_LABELS else 'binary'
+    model.save_pretrained(f'./models/bert_{label_str}_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}')
+
     return model
 
 if __name__ == '__main__':
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    num_labels = 11 if USE_ORIGINAL_LABELS else 2
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=num_labels)
     global tokenizer 
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
@@ -80,9 +92,10 @@ if __name__ == '__main__':
         load_process_data_from_hub()
 
     ## Load the tokenized datasets from disk
-    train_data = load_from_disk('./tokenized_data/train')
-    test_data = load_from_disk('./tokenized_data/test')
-    val_data = load_from_disk('./tokenized_data/val')
+    label_str = 'original' if USE_ORIGINAL_LABELS else 'binary'
+    train_data = load_from_disk(f'./tokenized_{label_str}_data/train')
+    test_data = load_from_disk(f'./tokenized_{label_str}_data/test')
+    val_data = load_from_disk(f'./tokenized_{label_str}_data/val')
 
     train_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
     test_data.set_format('torch', columns=['input_ids', 'attention_mask', 'labels'])
