@@ -64,7 +64,7 @@ plt.xlabel('Original Labels', fontsize=15)
 plt.ylabel('Occurrences', fontsize=15)
 plt.title('Occurrences in Dataset by Original Label', fontsize=20)
 # plt.show()
-plt.savefig('NB_occurrences_original_labels.png')
+plt.savefig('NB/NB_occurrences_original_labels.png')
 
 training_accuracy = []
 validation_accuracy = []
@@ -95,7 +95,7 @@ plt.xlabel("Feature Vector Size")
 plt.legend()
 plt.title('Accuracy vs. Feature Vector Size')
 
-plt.savefig('NB_accuracy_vs_feature_vector_size.png')
+plt.savefig('NB/NB_accuracy_vs_feature_vector_size.png')
 
 print(f'Features: {features}')
 print(f'Training Accuracies: {training_accuracy}')
