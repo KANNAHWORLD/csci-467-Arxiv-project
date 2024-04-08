@@ -1,0 +1,22 @@
+#!/bin/bash -l
+
+#SBATCH --nodes=1
+#SBATCH --ntasks=1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=8GB
+#SBATCH --time=01:15:00
+#SBATCH --account=aortega_421
+#SBATCH --partition=gpu
+#SBATCH --gres=gpu:1
+#SBATCH --array=1-8
+
+module purge
+module load gcc/11.3.0
+module load python
+
+cd /scratch1/aryangul
+cd csci467_project
+eval "$(conda shell.bash hook)"
+conda deactivate
+conda activate bert_embedding
+python3 bert_baseline.py --input=input/input_${SLURM_ARRAY_TASK_ID}
