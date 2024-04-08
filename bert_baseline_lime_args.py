@@ -141,7 +141,7 @@ def display_errors(val_preds, val_labels):
 if __name__ == '__main__':
 
 
-    num_labels = 11 if USE_ORIGINAL_LABELS else 2
+    NUM_LABELS = 11 if USE_ORIGINAL_LABELS else 2
 
     parser = argparse.ArgumentParser()
 
@@ -168,7 +168,7 @@ if __name__ == '__main__':
     BATCH_SIZE = args.batch
     LEARNING_RATE = args.lr
     global model
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=NUM_LABELS)
     global tokenizer 
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
