@@ -16,11 +16,12 @@ from torch.nn.functional import softmax
 # to exist and be in the same directory as this script
 
 
-MODEL_NAME = './models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
 DATASET_NAME = 'ccdv/arxiv-classification'
 TRAIN_MODEL = False
-PREPROCESS_DATA = False
+PREPROCESS_DATA = True
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
+USE_ORIGINAL_LABELS = True
 
 def predict_proba(texts):
     tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
@@ -137,10 +138,10 @@ def display_errors(val_preds, val_labels):
 
         input("Press Enter to continue...")
 
-    
-
-
 if __name__ == '__main__':
+
+
+    num_labels = 11 if USE_ORIGINAL_LABELS else 2
 
     parser = argparse.ArgumentParser()
 
