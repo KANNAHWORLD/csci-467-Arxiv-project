@@ -18,7 +18,7 @@ from torch.nn.functional import softmax
 
 MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
 DATASET_NAME = 'ccdv/arxiv-classification'
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 PREPROCESS_DATA = False
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 USE_ORIGINAL_LABELS = True
@@ -135,8 +135,6 @@ def display_errors(val_preds, val_labels):
 
         fig = explanation.as_pyplot_figure()
         plt.savefig(f'bert_graphs/{NUM_EPOCHS}_{BATCH_SIZE}_{LEARNING_RATE}/explanation_{i}.png')
-
-        input("Press Enter to continue...")
 
 if __name__ == '__main__':
 
