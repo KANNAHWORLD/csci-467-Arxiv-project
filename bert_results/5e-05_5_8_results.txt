@@ -1,0 +1,10 @@
+Num samples 2504
+Num samples 2500
+Accuracy:  0.8352
+Precision:  0.8329229182158054
+Recall:  0.8329079983826314
+F1:  0.8319076525512233
+Params: 
+Epochs:  5
+Batch size:  8
+Learning rate:  5e-05
