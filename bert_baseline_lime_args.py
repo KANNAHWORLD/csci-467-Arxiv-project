@@ -107,7 +107,7 @@ def analyze_errors(val_preds, val_labels):
     plt.ylabel('Number of Misclassifications')
     plt.title('Misclassifications by Original Label')
     # save plot
-    plt.savefig(f'bert_graphs/{NUM_EPOCHS}_{BATCH_SIZE}_{LEARNING_RATE}/misclassifications.png')
+    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_misclassifications.png')
 
 
 def display_errors(val_preds, val_labels):
@@ -134,7 +134,7 @@ def display_errors(val_preds, val_labels):
         explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=1000)
 
         fig = explanation.as_pyplot_figure()
-        plt.savefig(f'bert_graphs/{NUM_EPOCHS}_{BATCH_SIZE}_{LEARNING_RATE}/explanation_{i}.png')
+        plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
 
 if __name__ == '__main__':
 
