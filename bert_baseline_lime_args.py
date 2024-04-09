@@ -22,6 +22,7 @@ TRAIN_MODEL = True
 PREPROCESS_DATA = False
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 USE_ORIGINAL_LABELS = True
+DISPLAY_ERRORS = False
 
 def predict_proba(texts):
     tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
@@ -208,16 +209,19 @@ if __name__ == '__main__':
     recall = metrics.recall_score(val_labels, val_preds, average='macro')
     f1 = metrics.f1_score(val_labels, val_preds, average='macro')
 
-    print("Num samples", len(val_loader) * BATCH_SIZE)
-    print("Num samples", len(val_labels))
-    print("Accuracy: ", accuracy)
-    print("Precision: ", precision)
-    print("Recall: ", recall)
-    print("F1: ", f1)
-    print("Params: ")
-    print("Epochs: ", NUM_EPOCHS)
-    print("Batch size: ", BATCH_SIZE)
-    print("Learning rate: ", LEARNING_RATE)
+    file = open(f'bert_results/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_results.txt', 'w')
+    
+    with file as f:
+        print("Num samples", len(val_loader) * BATCH_SIZE, file=f)
+        print("Num samples", len(val_labels), file=f)
+        print("Accuracy: ", accuracy, file=f)
+        print("Precision: ", precision, file=f)
+        print("Recall: ", recall, file=f)
+        print("F1: ", f1, file=f)
+        print("Params: ", file=f)
+        print("Epochs: ", NUM_EPOCHS, file=f)
+        print("Batch size: ", BATCH_SIZE, file=f)
+        print("Learning rate: ", LEARNING_RATE, file=f)
 
-    analyze_errors(val_preds, val_labels)
-    display_errors(val_preds, val_labels)
+    analyze_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
+    display_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
