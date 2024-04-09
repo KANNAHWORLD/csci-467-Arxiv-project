@@ -32,7 +32,7 @@ def predict_proba(texts):
     return probs.squeeze().detach().cpu().numpy()
 
 def fix_labels(instance):
-    classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
+    classConversion = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     instance['labels'] = classConversion[instance['label']]
     return instance
 
@@ -45,9 +45,9 @@ def load_process_data_from_hub():
     train_data = load_dataset(DATASET_NAME, subset, split='train')
     val_data = load_dataset(DATASET_NAME, subset, split='validation')
 
-    # train_data = train_data.map(fix_labels)
-    # test_data = test_data.map(fix_labels)
-    # val_data = val_data.map(fix_labels)
+    train_data = train_data.map(fix_labels)
+    test_data = test_data.map(fix_labels)
+    val_data = val_data.map(fix_labels)
 
     # Preprocessing
     train_data = train_data.map(tokenize_batch, batched=False)
