@@ -17,19 +17,20 @@ import shlex
 # to exist and be in the same directory as this script
 
 # if no MODEL_NAME provided, defaults to bert-base-uncased
-MODEL_NAME = '' # something like ./models/bert_random_epochs_1_lr_1e-05_batch_16_hidden_512 when loading trained model
-MLP_NAME = '' # Only used when TRAIN_MODEL = False, something like ./models/mlp_random_epochs_1_lr_1e-05_batch_16_hidden_512.pt
+# Model and MLP name automatically calculated using hyperparams, no need to fill in
+MODEL_NAME = '' 
+MLP_NAME = '' 
 DATASET_NAME = 'ccdv/arxiv-classification'
 # If using a saved MODEL_NAME or MLP_NAME above, still make sure to update these to match:
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 MLP_HIDDEN_SIZE = 512
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
-USE_VAL_SET = False
+USE_VAL_SET = True
 
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
@@ -40,7 +41,7 @@ TEST = False
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
 
-
+# Usage: salloc --time=2:00:00 --cpus-per-task=8 --mem=32G --gres=gpu:1 --account=robinjia_1265
 
 if len(MODEL_NAME) == 0:
     MODEL_NAME = 'bert-base-uncased'
@@ -250,6 +251,8 @@ def parse_arguments():
     global BATCH_SIZE
     global LEARNING_RATE
     global MLP_HIDDEN_SIZE
+    global MODEL_NAME
+    global MLP_NAME
     
     parser = argparse.ArgumentParser()
 
@@ -274,6 +277,14 @@ def parse_arguments():
     BATCH_SIZE = args.batch
     LEARNING_RATE = args.lr
     MLP_HIDDEN_SIZE = args.hidden
+
+    # Create the BERT and MLP name (either for saving or loading)
+    test_str = 'test_' if TEST else ''
+    MODEL_NAME = f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}'
+    MLP_NAME = f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.pt'
+    print(f'Using BERT model name: {MODEL_NAME}')
+    print(f'Using MLP model name: {MLP_NAME}')
+
 
 
 if __name__ == '__main__':
@@ -315,7 +326,7 @@ if __name__ == '__main__':
     
     if TRAIN_MODEL:
         model, mlp = train(train_loader, test_loader, val_loader, model, device)
-    else:
+    else:\
         # load in MLP
         bert_output_size = 768 * 2
         num_outputs = len(ORIGINAL_LABELS)
@@ -325,8 +336,6 @@ if __name__ == '__main__':
         nn.Linear(MLP_HIDDEN_SIZE, num_outputs)
         ).to(device)
         mlp.load_state_dict(torch.load(MLP_NAME))
-    
-    
     
 
     model.eval()
