@@ -6,9 +6,12 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 import torch.nn as nn
 from tqdm import tqdm
+from sklearn.metrics import confusion_matrix
 from sklearn import metrics
 import spacy
 import random
+import os, argparse, sys 
+import shlex
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
@@ -26,7 +29,7 @@ TRAIN_MODEL = True
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
-USE_VAL_SET = True 
+USE_VAL_SET = False
 
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
@@ -241,7 +244,43 @@ def set_random_seeds(seed):
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
 
+
+def parse_arguments():
+    global NUM_EPOCHS
+    global BATCH_SIZE
+    global LEARNING_RATE
+    global MLP_HIDDEN_SIZE
+    
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--input', type=str, help='Input file name')
+    file_args = parser.parse_args()
+    file = file_args.input
+
+    def parse_file(filename):
+        with open(filename, 'r') as f:
+            args = shlex.split(f.read())
+        return args
+
+    parser = argparse.ArgumentParser()
+    ## parse the arguments for ep, weighted, atoms, sparsity, seed, epochs
+    parser.add_argument('--lr', type=float, default=LEARNING_RATE, help='Learning rate')
+    parser.add_argument('--batch', type=int, default=BATCH_SIZE, help='Batch size')
+    parser.add_argument('--epochs', type=int, default=NUM_EPOCHS, help='Number of epochs for training')
+    parser.add_argument('--hidden', type=int, default=MLP_HIDDEN_SIZE, help='MLP hidden layer size')
+
+    args = parser.parse_args(parse_file(file))
+    NUM_EPOCHS = args.epochs
+    BATCH_SIZE = args.batch
+    LEARNING_RATE = args.lr
+    MLP_HIDDEN_SIZE = args.hidden
+
+
 if __name__ == '__main__':
+    # Parse arguments
+    parse_arguments()
+
+
     if SET_SEEDS:
         set_random_seeds(SEED)
 
@@ -333,3 +372,8 @@ if __name__ == '__main__':
     print("Precision: ", precision)
     print("Recall: ", recall)
     print("F1: ", f1)
+
+    # Create and print confusion matrix
+    conf_matrix = confusion_matrix(val_labels, val_preds)
+    print('\nConfusion Matrix:')
+    print(conf_matrix)
