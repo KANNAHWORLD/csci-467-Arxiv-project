@@ -15,11 +15,13 @@ import shlex
 import matplotlib.pyplot as plt
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
+# AND: 'conf_matrix_output'
+CONF_MATRIX_OUTPUT_DIR = 'conf_matrix_output/'
 # to exist and be in the same directory as this script
 
-# if no MODEL_NAME provided, defaults to bert-base-uncased
-# Model and MLP name automatically calculated using hyperparams, no need to fill in
-MODEL_NAME = '' 
+# if no MODEL_NAME provided, defaults to creating model name assuming it is saved
+# Model and MLP name automatically calculated using hyperparams, no need to fill in during test mode
+MODEL_NAME = 'bert-base-uncased' 
 MLP_NAME = '' 
 DATASET_NAME = 'ccdv/arxiv-classification'
 # If using a saved MODEL_NAME or MLP_NAME above, still make sure to update these to match:
@@ -27,7 +29,7 @@ NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
 MLP_HIDDEN_SIZE = 512
-TRAIN_MODEL = False
+TRAIN_MODEL = True
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
@@ -43,9 +45,6 @@ ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs
 
 
 # Usage: salloc --time=2:00:00 --cpus-per-task=8 --mem=32G --gres=gpu:1 --account=robinjia_1265
-
-if len(MODEL_NAME) == 0:
-    MODEL_NAME = 'bert-base-uncased'
 
 
 def fix_labels(instance):
@@ -281,10 +280,11 @@ def parse_arguments():
 
     # Create the BERT and MLP name (either for saving or loading)
     test_str = 'test_' if TEST else ''
-    MODEL_NAME = f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}'
-    MLP_NAME = f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.pt'
-    print(f'Using BERT model name: {MODEL_NAME}')
-    print(f'Using MLP model name: {MLP_NAME}')
+    if not TRAIN_MODEL:
+        MODEL_NAME = f'./models/bert_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}'
+        MLP_NAME = f'./models/mlp_{test_str}random_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.pt'
+        print(f'Using BERT model name: {MODEL_NAME}')
+        print(f'Using MLP model name: {MLP_NAME}')
 
 
 # Helper function to display / save confusion matrix
@@ -295,12 +295,15 @@ def save_confusion_matrix(labels, preds):
 
     # Save confusion matrix
     conf_matrix_filename = f'conf_matrix_{eval_str}_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.png'
+    conf_matrix_filename = CONF_MATRIX_OUTPUT_DIR + conf_matrix_filename
 
     plt.figure(figsize=(9, 7))
     display = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=ORIGINAL_LABELS)
     display.plot(values_format='d')
     tmp_str = 'Val' if USE_VAL_SET else 'Test'
     plt.title(f'Confusion Matrix On {tmp_str} Set')
+    plt.xticks(rotation=45, ha='right')
+    plt.tight_layout()
     plt.savefig(conf_matrix_filename)
     print(f'\nSaved to filename: {conf_matrix_filename}')
 
@@ -334,8 +337,8 @@ if __name__ == '__main__':
     val_data_random = load_from_disk(f'./tokenized_random_{test_str}data/val_random')
 
     full_train_data = concatenate_helper(train_data, train_data_random)
-    full_test_data = concatenate_helper(train_data, train_data_random)
-    full_val_data = concatenate_helper(train_data, train_data_random)
+    full_test_data = concatenate_helper(test_data, test_data_random)
+    full_val_data = concatenate_helper(val_data, val_data_random)
     
     train_loader = DataLoader(full_train_data, batch_size=BATCH_SIZE, shuffle=True)
     test_loader = DataLoader(full_test_data, batch_size=BATCH_SIZE, shuffle=False, drop_last=False)
