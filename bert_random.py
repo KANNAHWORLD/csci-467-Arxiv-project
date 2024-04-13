@@ -6,12 +6,13 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 import torch.nn as nn
 from tqdm import tqdm
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, ConfusionMatrixDisplay
 from sklearn import metrics
 import spacy
 import random
 import os, argparse, sys 
 import shlex
+import matplotlib.pyplot as plt
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # to exist and be in the same directory as this script
@@ -286,6 +287,23 @@ def parse_arguments():
     print(f'Using MLP model name: {MLP_NAME}')
 
 
+# Helper function to display / save confusion matrix
+def save_confusion_matrix(labels, preds):
+    conf_matrix = confusion_matrix(labels, preds)
+    print('\nConfusion Matrix:')
+    print(conf_matrix)
+
+    # Save confusion matrix
+    conf_matrix_filename = f'conf_matrix_{eval_str}_epochs_{NUM_EPOCHS}_lr_{LEARNING_RATE}_batch_{BATCH_SIZE}_hidden_{MLP_HIDDEN_SIZE}.png'
+
+    plt.figure(figsize=(9, 7))
+    display = ConfusionMatrixDisplay(confusion_matrix=conf_matrix, display_labels=ORIGINAL_LABELS)
+    display.plot(values_format='d')
+    tmp_str = 'Val' if USE_VAL_SET else 'Test'
+    plt.title(f'Confusion Matrix On {tmp_str} Set')
+    plt.savefig(conf_matrix_filename)
+    print(f'\nSaved to filename: {conf_matrix_filename}')
+
 
 if __name__ == '__main__':
     # Parse arguments
@@ -383,6 +401,4 @@ if __name__ == '__main__':
     print("F1: ", f1)
 
     # Create and print confusion matrix
-    conf_matrix = confusion_matrix(val_labels, val_preds)
-    print('\nConfusion Matrix:')
-    print(conf_matrix)
+    save_confusion_matrix(val_labels, val_preds)
