@@ -16,13 +16,14 @@ from torch.nn.functional import softmax
 # to exist and be in the same directory as this script
 
 
-MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+# MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = "./models/bert_epochs_3_lr_1e-5_batch_4"
 DATASET_NAME = 'ccdv/arxiv-classification'
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 USE_ORIGINAL_LABELS = True
-DISPLAY_ERRORS = False
+DISPLAY_ERRORS = True
 
 def predict_proba(texts):
     tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
@@ -208,6 +209,18 @@ if __name__ == '__main__':
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
     recall = metrics.recall_score(val_labels, val_preds, average='macro')
     f1 = metrics.f1_score(val_labels, val_preds, average='macro')
+
+    # Confusion matrix
+    confusion_matrix = metrics.confusion_matrix(val_labels, val_preds)
+    plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title('Confusion matrix')
+    plt.colorbar()
+    tick_marks = np.arange(len(ORIGINAL_LABELS))
+    plt.xticks(tick_marks, ORIGINAL_LABELS, rotation=45)
+    plt.yticks(tick_marks, ORIGINAL_LABELS)
+    plt.xlabel('Predicted label')
+    plt.ylabel('True label')
+    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
 
     file = open(f'bert_results/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_results.txt', 'w')
     
