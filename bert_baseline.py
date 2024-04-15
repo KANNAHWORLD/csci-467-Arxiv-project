@@ -6,16 +6,18 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
+import matplotlib.pyplot as plt
 
 ## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+# MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = './models/bert_epochs_3_lr_1e-05_batch_4'
 DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 1
 BATCH_SIZE = 16
 LEARNING_RATE = 1e-5
-TRAIN_MODEL = True
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
 
 USE_ORIGINAL_LABELS = True 
@@ -119,6 +121,20 @@ if __name__ == '__main__':
             outputs = model(**batch)
         val_labels.extend(batch['labels'].cpu().numpy().tolist())
         val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
+
+    cm = metrics.confusion_matrix(val_labels, val_preds)
+    # Plot confusion matrix
+    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
+    plt.title('Confusion matrix')
+    plt.colorbar()
+    tick_marks = np.arange(len(ORIGINAL_LABELS))
+    plt.xticks(tick_marks, ORIGINAL_LABELS, rotation=45)
+    plt.yticks(tick_marks, ORIGINAL_LABELS)
+    plt.xlabel('Predicted label')
+    plt.ylabel('True label')
+
+    # Save confusion matrix as a figure
+    plt.savefig('confusion_matrix.png')
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
     precision = metrics.precision_score(val_labels, val_preds, average='macro')

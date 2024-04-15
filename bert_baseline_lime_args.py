@@ -17,7 +17,7 @@ from torch.nn.functional import softmax
 
 
 # MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
-MODEL_NAME = "./models/bert_epochs_3_lr_1e-5_batch_4"
+MODEL_NAME = "./models/bert_epochs_3_lr_1e-05_batch_4"
 DATASET_NAME = 'ccdv/arxiv-classification'
 TRAIN_MODEL = False
 PREPROCESS_DATA = False
