@@ -8,6 +8,7 @@ from tqdm import tqdm
 from sklearn import metrics
 import matplotlib.pyplot as plt
 from lime.lime_text import LimeTextExplainer
+from torch.nn.functional import softmax
 
 ## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
 # to exist and be in the same directory as this script
@@ -33,6 +34,14 @@ def fix_labels(instance):
     
     instance['labels'] = classConversion[instance['label']]
     return instance
+
+def predict_proba(texts):
+    tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
+    with torch.no_grad():
+        inputs = {name: tensor.to(device) for name, tensor in tokenized.items()}
+        outputs = model(**inputs)
+        probs = softmax(outputs.logits, dim=-1)
+    return probs.squeeze().detach().cpu().numpy()
 
 def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
@@ -178,7 +187,8 @@ if __name__ == '__main__':
 
     cm = metrics.confusion_matrix(val_labels, val_preds)
     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
-    disp.savefig(f'confusion_matrix.png')
+    disp.plot()
+    plt.savefig(f'confusion_matrix.png')
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
