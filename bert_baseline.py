@@ -7,6 +7,7 @@ from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
 import matplotlib.pyplot as plt
+from lime.lime_text import LimeTextExplainer
 
 ## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
 # to exist and be in the same directory as this script
@@ -14,11 +15,12 @@ import matplotlib.pyplot as plt
 # MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
 MODEL_NAME = './models/bert_epochs_3_lr_1e-05_batch_4'
 DATASET_NAME = 'ccdv/arxiv-classification'
-NUM_EPOCHS = 1
-BATCH_SIZE = 16
+NUM_EPOCHS = 3
+BATCH_SIZE = 4
 LEARNING_RATE = 1e-5
 TRAIN_MODEL = False
 PREPROCESS_DATA = False
+DISPLAY_ERRORS = True
 
 USE_ORIGINAL_LABELS = True 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
@@ -54,6 +56,58 @@ def load_process_data_from_hub():
     train_data.save_to_disk(f'./tokenized_{label_str}_data/train')
     test_data.save_to_disk(f'./tokenized_{label_str}_data/test')
     val_data.save_to_disk(f'./tokenized_{label_str}_data/val')
+
+def display_errors(val_preds, val_labels):
+    '''
+    Print out original labels and text for incorrect predictions, one at a time
+    Ask for user input to continue to next error
+    '''
+    errors = []
+    for i, pred in enumerate(val_preds):
+        if pred != val_labels[i]:
+            errors.append(i)
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    tokenized_val_ds = load_from_disk('./tokenized_data/val')
+
+    explainer = LimeTextExplainer(class_names=['math', 'cs'])
+
+    for i in errors:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        print("Text from DS: ", original_val_ds[i]['text'][:1000])
+
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=1000)
+
+        fig = explanation.as_pyplot_figure()
+        plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+
+def analyze_errors(val_preds, val_labels):
+    '''
+    Generate plot of original labels for incorrect predictions
+    '''
+
+    errors = []
+    for i, pred in enumerate(val_preds):
+        if pred != val_labels[i]:
+            errors.append(i)
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    
+    misclassifications = np.zeros(11)
+    for i in errors:
+        misclassifications[original_val_ds[i]['label']] += 1
+    
+    # plot histogram of misclassifications
+    # X-axis: original label text
+    # Y-axis: number of misclassifications
+    plt.figure(figsize=(10, 5))
+    plt.bar(ORIGINAL_LABELS, misclassifications)
+    plt.xlabel('Original Label')
+    plt.ylabel('Number of Misclassifications')
+    plt.title('Misclassifications by Original Label')
+    # save plot
+    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_misclassifications.png')
 
 def train(train_loader, test_loader, val_loader, model, device):
 
@@ -123,18 +177,8 @@ if __name__ == '__main__':
         val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
 
     cm = metrics.confusion_matrix(val_labels, val_preds)
-    # Plot confusion matrix
-    plt.imshow(cm, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Confusion matrix')
-    plt.colorbar()
-    tick_marks = np.arange(len(ORIGINAL_LABELS))
-    plt.xticks(tick_marks, ORIGINAL_LABELS, rotation=45)
-    plt.yticks(tick_marks, ORIGINAL_LABELS)
-    plt.xlabel('Predicted label')
-    plt.ylabel('True label')
-
-    # Save confusion matrix as a figure
-    plt.savefig('confusion_matrix.png')
+    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
+    disp.savefig(f'confusion_matrix.png')
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
@@ -147,3 +191,6 @@ if __name__ == '__main__':
     print("Precision: ", precision)
     print("Recall: ", recall)
     print("F1: ", f1)
+
+    analyze_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
+    display_errors(val_preds, val_labels) if DISPLAY_ERRORS else None

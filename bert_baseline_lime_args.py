@@ -211,16 +211,10 @@ if __name__ == '__main__':
     f1 = metrics.f1_score(val_labels, val_preds, average='macro')
 
     # Confusion matrix
-    confusion_matrix = metrics.confusion_matrix(val_labels, val_preds)
-    plt.imshow(confusion_matrix, interpolation='nearest', cmap=plt.cm.Blues)
-    plt.title('Confusion matrix')
-    plt.colorbar()
-    tick_marks = np.arange(len(ORIGINAL_LABELS))
-    plt.xticks(tick_marks, ORIGINAL_LABELS, rotation=45)
-    plt.yticks(tick_marks, ORIGINAL_LABELS)
-    plt.xlabel('Predicted label')
-    plt.ylabel('True label')
-    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
+    cm = metrics.confusion_matrix(val_labels, val_preds)
+    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
+    disp.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
+    # plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
 
     file = open(f'bert_results/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_results.txt', 'w')
     
