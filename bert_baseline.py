@@ -78,7 +78,7 @@ def display_errors(val_preds, val_labels):
     original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
     tokenized_val_ds = load_from_disk('./tokenized_data/val')
 
-    explainer = LimeTextExplainer(class_names=['math', 'cs'])
+    explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
 
     for i in errors:
         print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
