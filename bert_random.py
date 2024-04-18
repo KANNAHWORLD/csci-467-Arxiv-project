@@ -13,6 +13,9 @@ import random
 import os, argparse, sys 
 import shlex
 import matplotlib.pyplot as plt
+from lime.lime_text import LimeTextExplainer
+from torch.nn.functional import softmax
+from transformers.tokenization_utils_base import BatchEncoding
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
 # AND: 'conf_matrix_output'
@@ -25,26 +28,30 @@ MODEL_NAME = 'bert-base-uncased'
 MLP_NAME = '' 
 DATASET_NAME = 'ccdv/arxiv-classification'
 # If using a saved MODEL_NAME or MLP_NAME above, still make sure to update these to match:
-NUM_EPOCHS = 1
-BATCH_SIZE = 16
+NUM_EPOCHS = 3
+BATCH_SIZE = 4
 LEARNING_RATE = 1e-5
-MLP_HIDDEN_SIZE = 512
-TRAIN_MODEL = True
+MLP_HIDDEN_SIZE = 1024
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
 
 # If true, use val set (else, use test set)
 USE_VAL_SET = True
 
+# Error analysis
+ERROR_ANALYSIS = True
+LIME_SAMPLES = 100 # used only if above is True
+
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
 
 # Use test flag to only use 3 examples for each split
-TEST = False
+TEST = True
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
 
-# Usage: salloc --time=2:00:00 --cpus-per-task=8 --mem=32G --gres=gpu:1 --account=robinjia_1265
+# Usage: salloc --time=2:00:00 --cpus-per-task=8 --mem=32G --gres=gpu:1 --partition=gpu --account=robinjia_1265
 
 
 def fix_labels(instance):
@@ -195,7 +202,7 @@ def pad_tensor(tensor, expected_size):
 
 
 # Helper function that concatenates tokenized data with tokenized random data
-def concatenate_helper(data, data_random):
+def concatenate_helper(data, data_random, overall_label=None):
     # Initialize an empty dictionary to store concatenated representations
     concatenated_examples = {
         'input_ids': [],
@@ -203,8 +210,28 @@ def concatenate_helper(data, data_random):
         'labels': []
     }
 
+    # print(f"Data Keys: {data.keys()}")
+
+    if isinstance(data, BatchEncoding):
+        # Assume that label provided
+
+        def transform_to_dataset(batch):
+            input_ids = batch.input_ids
+            attention_mask = batch.attention_mask
+
+            dataset_dict = {'input_ids': [], 'attention_mask': [], 'labels': []}
+            for i in range(len(input_ids)):
+                dataset_dict['input_ids'].append([input_ids[i]])
+                dataset_dict['attention_mask'].append([attention_mask[i]])
+                dataset_dict['labels'].append(overall_label)
+            return Dataset.from_dict(dataset_dict)
+        
+        data = transform_to_dataset(data)
+        data_random = transform_to_dataset(data_random)
+
     # Iterate
     for example, example_random in tqdm(zip(data, data_random), total=len(data)):
+
         # Convert to tensors to concatenate
         input_ids_tensor = torch.tensor(example['input_ids'])
         input_ids_random_tensor = torch.tensor(example_random['input_ids'])
@@ -272,11 +299,12 @@ def parse_arguments():
     parser.add_argument('--epochs', type=int, default=NUM_EPOCHS, help='Number of epochs for training')
     parser.add_argument('--hidden', type=int, default=MLP_HIDDEN_SIZE, help='MLP hidden layer size')
 
-    args = parser.parse_args(parse_file(file))
-    NUM_EPOCHS = args.epochs
-    BATCH_SIZE = args.batch
-    LEARNING_RATE = args.lr
-    MLP_HIDDEN_SIZE = args.hidden
+    if (file is not None) and len(file) > 0:
+        args = parser.parse_args(parse_file(file))
+        NUM_EPOCHS = args.epochs
+        BATCH_SIZE = args.batch
+        LEARNING_RATE = args.lr
+        MLP_HIDDEN_SIZE = args.hidden
 
     # Create the BERT and MLP name (either for saving or loading)
     test_str = 'test_' if TEST else ''
@@ -306,6 +334,68 @@ def save_confusion_matrix(labels, preds):
     plt.tight_layout()
     plt.savefig(conf_matrix_filename)
     print(f'\nSaved to filename: {conf_matrix_filename}')
+
+
+# Global flag for current label
+curr_label = None
+
+def predict_proba(texts):
+    batch_texts = {'text': texts}
+    tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
+    tokenized_random = tokenize_batch_random(batch_texts)
+    concatenated = concatenate_helper(tokenized, tokenized_random, curr_label)
+    with torch.no_grad():
+        # inputs = {name: tensor.to(device) for name, tensor in concatenated.items()}
+
+        input_ids = concatenated['input_ids'].to(device)
+        attention_mask = concatenated['attention_mask'].to(device)
+
+        
+        # Model output for first 512 tokens, random 512 tokens
+        _, truncated_outputs = model(input_ids=input_ids[:, 0, :], attention_mask=attention_mask[:, 0, :], return_dict=False)
+        _, random_outputs = model(input_ids=input_ids[:, 1, :], attention_mask=attention_mask[:, 1, :], return_dict=False)
+
+        # Concatenate
+        concatenated_output = torch.cat((truncated_outputs, random_outputs), dim=1)
+
+        # MLP output
+        mlp_output = mlp(concatenated_output)
+
+        probs = softmax(mlp_output, dim=-1)
+
+    return probs.squeeze().detach().cpu().numpy()
+
+
+def display_errors(val_preds, val_labels):
+    '''
+    Print out original labels and text for incorrect predictions, one at a time
+    Ask for user input to continue to next error
+    '''
+    global curr_label
+
+    errors = []
+    for i, pred in enumerate(val_preds):
+        if pred != val_labels[i]:
+            errors.append(i)
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    tokenized_val_ds = load_from_disk('./tokenized_random_data/val')
+
+    explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
+
+    for i in errors:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", ORIGINAL_LABELS[val_preds[i]])
+        print("Correct label: ", ORIGINAL_LABELS[val_labels[i]])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        print("Text from DS: ", original_val_ds[i]['text'][:1000])
+
+        curr_label = val_labels[i]
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES)
+
+        fig = explanation.as_pyplot_figure()
+        plt.savefig(f'explanations/explanation_{i}.png')
+
+        input("Press Enter to continue...")
 
 
 if __name__ == '__main__':
@@ -404,4 +494,8 @@ if __name__ == '__main__':
     print("F1: ", f1)
 
     # Create and print confusion matrix
-    save_confusion_matrix(val_labels, val_preds)
+    # save_confusion_matrix(val_labels, val_preds)
+
+    # Do error analysis
+    if ERROR_ANALYSIS:
+        display_errors(val_preds, val_labels)
