@@ -1,0 +1,53 @@
+==========================================
+SLURM_JOB_ID = 22669448
+SLURM_JOB_NODELIST = a02-01
+TMPDIR = /tmp/SLURM_22669448
+==========================================
+/home1/bansalsi/csci-467-project/csci467/lib/python3.9/site-packages/datasets/load.py:1461: FutureWarning: The repository for ccdv/arxiv-classification contains custom code which must be executed to correctly load the dataset. You can inspect the repository content at https://hf.co/datasets/ccdv/arxiv-classification
+You can avoid this message in future by passing the argument `trust_remote_code=True`.
+Passing `trust_remote_code=True` will be mandatory to load this dataset from the next major release of `datasets`.
+  warnings.warn(
+=== Loading Data ===
+=== Data Loaded, Processing ===
+=== Data Processed, Vectorizing ===
+=== Vectorized, Training Model ===
+Accurracy train data points: 0.9417007186134987
+Accurracy on validation: 0.0904
+Starting feature size: 10
+Train score:  0.28483866422432014
+Validation score:  0.27
+Finished feature size: 10
+Starting feature size: 50
+Train score:  0.5366351979709737
+Validation score:  0.524
+Finished feature size: 50
+Starting feature size: 100
+Train score:  0.5902494011554178
+Validation score:  0.5792
+Finished feature size: 100
+Starting feature size: 200
+Train score:  0.6260039453290123
+Validation score:  0.622
+Finished feature size: 200
+Starting feature size: 500
+Train score:  0.6677469353247851
+Validation score:  0.6472
+Finished feature size: 500
+Starting feature size: 1000
+Train score:  0.6969141890939834
+Validation score:  0.6652
+Finished feature size: 1000
+Starting feature size: 2000
+Train score:  0.7370720022544737
+Validation score:  0.6568
+Finished feature size: 2000
+Starting feature size: 20000
+Train score:  0.9244046780329717
+Validation score:  0.5748
+Finished feature size: 20000
+=== Finished Training ===
+Training accuracies:  [0.28483866422432014, 0.5366351979709737, 0.5902494011554178, 0.6260039453290123, 0.6677469353247851, 0.6969141890939834, 0.7370720022544737, 0.9244046780329717]
+Validation accuracies:  [0.27, 0.524, 0.5792, 0.622, 0.6472, 0.6652, 0.6568, 0.5748]
+Features: [10, 50, 100, 200, 500, 1000, 2000, 20000]
+Training Accuracies: [0.28483866422432014, 0.5366351979709737, 0.5902494011554178, 0.6260039453290123, 0.6677469353247851, 0.6969141890939834, 0.7370720022544737, 0.9244046780329717]
+Validation Accuracies: [0.27, 0.524, 0.5792, 0.622, 0.6472, 0.6652, 0.6568, 0.5748]
