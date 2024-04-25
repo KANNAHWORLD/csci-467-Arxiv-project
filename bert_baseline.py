@@ -21,7 +21,7 @@ BATCH_SIZE = 4
 LEARNING_RATE = 1e-5
 TRAIN_MODEL = False
 PREPROCESS_DATA = False
-DISPLAY_ERRORS = True
+DISPLAY_ERRORS = False
 
 USE_ORIGINAL_LABELS = True 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
