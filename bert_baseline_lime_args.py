@@ -115,27 +115,52 @@ def display_errors(val_preds, val_labels):
     Ask for user input to continue to next error
     '''
     errors = []
+    correct = []
     for i, pred in enumerate(val_preds):
         if pred != val_labels[i]:
             errors.append(i)
+        else:
+            correct.append(i)
     original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
     tokenized_val_ds = load_from_disk('./tokenized_data/val')
 
-    explainer = LimeTextExplainer(class_names=['math', 'cs'])
+    explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
 
     for i in errors:
-        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-        print("Predicted label: ", val_preds[i])
-        print("Correct label: ", val_labels[i])
-        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
-        print("Text from DS: ", original_val_ds[i]['text'][:1000])
+        # print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        # print("Predicted label: ", val_preds[i])
+        # print("Correct label: ", val_labels[i])
+        # print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        # print("Text from DS: ", original_val_ds[i]['text'][:1000])
 
-        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=1000)
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=500, labels=[val_preds[i], val_labels[i]])
 
-        fig = explanation.as_pyplot_figure()
-        plt.savefig(f'explanation_{i}.png')
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'./longformer_lime/longformer_explanation_{i}_prediction.png')
 
-        input("Press Enter to continue...")
+        plt.clf()
+
+        fig_2 = explanation.as_pyplot_figure(label=val_labels[i])
+        fig_2.text(0.5, 0.001, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'./longformer_lime/errors/longformer_explanation_{i}_correct.png')
+
+        #input("Press Enter to continue...")
+    for i in correct:
+        # print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        # print("Predicted label: ", val_preds[i])
+        # print("Correct label: ", val_labels[i])
+        # print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        # print("Text from DS: ", original_val_ds[i]['text'][:1000])
+
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=500, labels=[val_labels[i]])
+        
+        fig = explanation.as_pyplot_figure(label=val_labels[i])
+        fig.text(0.5, 0.001, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'./longformer_lime/correct/longformer_explanation_{i}_correct.png')
 
     
 
