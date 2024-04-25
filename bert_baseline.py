@@ -187,7 +187,7 @@ if __name__ == '__main__':
         val_labels.extend(batch['labels'].cpu().numpy().tolist())
         val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
 
-    cm = metrics.confusion_matrix(val_labels, val_preds, normalize="pred")
+    cm = metrics.confusion_matrix(val_labels, val_preds, normalize="true")
     plt.figure(figsize=(12, 12))
     cmp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
     
