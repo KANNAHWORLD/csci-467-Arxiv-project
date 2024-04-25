@@ -153,6 +153,8 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
     model = model.to(device)
 
+
+
     if PREPROCESS_DATA:
         load_process_data_from_hub()
 
@@ -185,7 +187,8 @@ if __name__ == '__main__':
         val_labels.extend(batch['labels'].cpu().numpy().tolist())
         val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
 
-    cm = metrics.confusion_matrix(val_labels, val_preds)
+    cm = metrics.confusion_matrix(val_labels, val_preds, normalize="pred")
+    plt.figure(figsize=(12, 12))
     disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
     disp.plot()
     plt.savefig(f'confusion_matrix.png')
@@ -202,5 +205,5 @@ if __name__ == '__main__':
     print("Recall: ", recall)
     print("F1: ", f1)
 
-    analyze_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
+    analyze_errors(val_preds, val_labels)
     display_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
