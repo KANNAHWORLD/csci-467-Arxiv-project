@@ -18,7 +18,7 @@ from torch.nn.functional import softmax
 from transformers.tokenization_utils_base import BatchEncoding
 
 ## Note: expects directories called 'tokenized_random_data', 'tokenized_random_test_data', 'models'
-# AND: 'conf_matrix_output'
+# AND: 'conf_matrix_output', 'explanations_random/errors', 'explanations_random/correct'
 CONF_MATRIX_OUTPUT_DIR = 'conf_matrix_output/'
 # to exist and be in the same directory as this script
 
@@ -40,13 +40,13 @@ USE_VAL_SET = True
 
 # Error analysis
 ERROR_ANALYSIS = True
-LIME_SAMPLES = 100 # used only if above is True
+LIME_SAMPLES = 500 # used only if above is True
 
 SET_SEEDS = True # makes output deterministic, using following seed
 SEED = 42
 
 # Use test flag to only use 3 examples for each split
-TEST = True
+TEST = False
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
@@ -374,28 +374,59 @@ def display_errors(val_preds, val_labels):
     global curr_label
 
     errors = []
+    correct = []
     for i, pred in enumerate(val_preds):
         if pred != val_labels[i]:
             errors.append(i)
+        else:
+            correct.append(i)
     original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
     tokenized_val_ds = load_from_disk('./tokenized_random_data/val')
 
     explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
 
+    print('\n\n------ ERRORS -------\n\n')
     for i in errors:
         print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-        print("Predicted label: ", ORIGINAL_LABELS[val_preds[i]])
-        print("Correct label: ", ORIGINAL_LABELS[val_labels[i]])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
         print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
-        print("Text from DS: ", original_val_ds[i]['text'][:1000])
+        print("Text from DS: ", original_val_ds[i]['text'][:100])
 
-        curr_label = val_labels[i]
-        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES)
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i], val_labels[i]])
 
-        fig = explanation.as_pyplot_figure()
-        plt.savefig(f'explanations/explanation_{i}.png')
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'explanations_random/errors/explanation_{i}_prediction.png')
 
-        input("Press Enter to continue...")
+        plt.clf()
+
+        fig_2 = explanation.as_pyplot_figure(label=val_labels[i])
+        fig_2.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'explanations_random/errors/explanation_{i}_correct.png')
+
+        # input("Press Enter to continue...")
+
+    print('\n\n------ CORRECT -------\n\n')
+    for i in correct:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0][:300]))
+        print("Text from DS: ", original_val_ds[i]['text'][:300])
+
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i]])
+
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'explanations_random/correct/explanation_{i}.png')
+
+        plt.clf()
+
+        # input("Press Enter to continue...")
 
 
 if __name__ == '__main__':
