@@ -189,9 +189,12 @@ if __name__ == '__main__':
 
     cm = metrics.confusion_matrix(val_labels, val_preds, normalize="pred")
     plt.figure(figsize=(12, 12))
-    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
-    disp.plot()
-    plt.setp(plt.gca().get_xticklabels(), rotation=45)
+    cmp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
+    
+    fig, ax = plt.subplots(figsize=(10,10))
+    cmp.plot(ax=ax)
+
+    plt.setp(ax.get_xticklabels(), rotation=45)
     plt.savefig(f'confusion_matrix.png')
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
