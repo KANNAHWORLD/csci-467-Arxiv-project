@@ -7,12 +7,13 @@ from matplotlib import pyplot as plt
 
 from sklearn.naive_bayes import GaussianNB
 from sklearn.feature_extraction.text import HashingVectorizer
+from sklearn.metrics import classification_report
 
 NAME_DATASET = "ccdv/arxiv-classification"
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
-TEST_SCORE = True
+TEST_SCORE = False
 TEST_FEATURE_SIZE = 1000
 
 # 0 is for original Math classes, 1 is for original CS classes
@@ -93,6 +94,8 @@ plt.savefig('NB/NB_occurrences_original_labels.png')
 
 training_accuracy = []
 validation_accuracy = []
+v_classification_reports = []
+train_classification_reports = [] 
 
 for vectorSize in features:
     print(f"Starting feature size: {vectorSize}")
@@ -110,12 +113,21 @@ for vectorSize in features:
     # Calculating the scores
     train_score = gnb.score(train_X.toarray(), train_y)
     validation_score = gnb.score(validation_X.toarray(), validation_y)
-    test_score = gnb.score(test_X.toarray(), test_y)
+
+    train_pred = gnb.predict(train_X.toarray())
+    validation_predictions = gnb.predict(validation_X.toarray())
 
     # Printing scores
     print("Train score: ", train_score)
     print("Validation score: ", validation_score)
-    print("Test score: ", test_score)
+    
+    print("=== Classification Report ===")
+
+    v_classification_reports.append(classification_report(validation_y, validation_predictions, output_dict=True))
+    train_classification_reports.append(classification_report(train_y, train_pred, output_dict=True))
+
+    print(classification_report(train_y, train_pred, output_dict=False))
+    print(classification_report(validation_y, validation_predictions, output_dict=False))
 
     # Append accurracies
     training_accuracy.append(train_score)
@@ -139,3 +151,8 @@ plt.savefig('NB/NB_accuracy_vs_feature_vector_size.png')
 print(f'Features: {features}')
 print(f'Training Accuracies: {training_accuracy}')
 print(f'Validation Accuracies: {validation_accuracy}')
+
+print("=== Finished ===")
+print("=== Saving Classification Reports ===")
+print(v_classification_reports)
+print(train_classification_reports)
