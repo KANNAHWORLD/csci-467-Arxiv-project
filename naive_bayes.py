@@ -12,6 +12,9 @@ NAME_DATASET = "ccdv/arxiv-classification"
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
+TEST_SCORE = True
+TEST_FEATURE_SIZE = 1000
+
 # 0 is for original Math classes, 1 is for original CS classes
 classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
 
@@ -24,6 +27,28 @@ print("=== Data Loaded, Processing ===")
 train_y = train_data['label']
 test_y = test_data['label']
 validation_y = validation_data['label']
+
+if TEST_SCORE:
+    vectorizer = HashingVectorizer(n_features=TEST_FEATURE_SIZE)
+    
+    # Fit to vectorizer
+    train_X = vectorizer.fit_transform(train_data['text'])
+    test_X = vectorizer.transform(test_data['text'])
+    
+    # Train Model
+    gnb = GaussianNB()
+    gnb.fit(train_X.toarray(), train_y)
+
+    # Calculating the scores
+    train_score = gnb.score(train_X.toarray(), train_y)
+    test_score = gnb.score(test_X.toarray(), test_y)
+
+    # Printing scores
+    print("\n=== Testing Scores ===")
+    print("Train score: ", train_score)
+    print("Test score: ", test_score)
+    
+    exit()
 
 
 print("=== Data Processed, Vectorizing ===")
@@ -57,6 +82,8 @@ for label in validation_y:
 for label in test_y:
     distribution[label] += 1
 
+
+
 plt.figure(figsize=(10, 6))
 plt.bar(ORIGINAL_LABELS, distribution)
 plt.xlabel('Original Labels', fontsize=15)
@@ -83,10 +110,12 @@ for vectorSize in features:
     # Calculating the scores
     train_score = gnb.score(train_X.toarray(), train_y)
     validation_score = gnb.score(validation_X.toarray(), validation_y)
+    test_score = gnb.score(test_X.toarray(), test_y)
 
     # Printing scores
     print("Train score: ", train_score)
     print("Validation score: ", validation_score)
+    print("Test score: ", test_score)
 
     # Append accurracies
     training_accuracy.append(train_score)
