@@ -13,7 +13,7 @@ NAME_DATASET = "ccdv/arxiv-classification"
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
-TEST_SCORE = False
+TEST_SCORE = True
 TEST_FEATURE_SIZE = 1000
 
 # 0 is for original Math classes, 1 is for original CS classes
@@ -43,6 +43,10 @@ if TEST_SCORE:
     # Calculating the scores
     train_score = gnb.score(train_X.toarray(), train_y)
     test_score = gnb.score(test_X.toarray(), test_y)
+
+    print("=== Classification Report ===")
+    test_pred = gnb.predict(test_X.toarray())
+    print(classification_report(test_y, test_pred, output_dict=False))
 
     # Printing scores
     print("\n=== Testing Scores ===")
