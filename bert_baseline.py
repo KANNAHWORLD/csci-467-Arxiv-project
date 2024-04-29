@@ -124,7 +124,7 @@ def display_errors(val_preds, val_labels):
         fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
         fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
         plt.tight_layout()
-        plt.savefig(f'explanations_random/correct/fig1/explanation_{i}.png')
+        plt.savefig(f'bert_graphs/correct/fig1/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
         plt.clf()
 
 def analyze_errors(val_preds, val_labels):
