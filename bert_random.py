@@ -50,6 +50,8 @@ TEST = False
 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
 
+# Print context mode (for showing text in papers given index)
+PRINT_CONTEXT_MODE = False
 
 # Usage: salloc --time=2:00:00 --cpus-per-task=8 --mem=32G --gres=gpu:1 --partition=gpu --account=robinjia_1265
 
@@ -61,7 +63,7 @@ def fix_labels(instance):
     return instance
 
 # Tokenize random sentences
-def tokenize_batch_random(batch):
+def tokenize_batch_random(batch, max_padding=False):
     # Create list of sentences using spacy
     nlp = spacy.load("en_core_web_sm")
     # Set max length limit (max document size is 2553768)
@@ -108,7 +110,10 @@ def tokenize_batch_random(batch):
         for idx in reordered_idxs:
             output_text += str(sentences[idx]) + ' '
         output_texts.append(output_text)
-    return tokenizer(output_texts, max_length=512, truncation=True, return_tensors='pt')
+    if max_padding:
+        return tokenizer(output_texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
+    else:
+        return tokenizer(output_texts, max_length=512, truncation=True, return_tensors='pt')
 
 def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
@@ -342,7 +347,7 @@ curr_label = None
 def predict_proba(texts):
     batch_texts = {'text': texts}
     tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
-    tokenized_random = tokenize_batch_random(batch_texts)
+    tokenized_random = tokenize_batch_random(batch_texts, max_padding=True)
     concatenated = concatenate_helper(tokenized, tokenized_random, curr_label)
     with torch.no_grad():
         # inputs = {name: tensor.to(device) for name, tensor in concatenated.items()}
@@ -429,9 +434,28 @@ def display_errors(val_preds, val_labels):
         # input("Press Enter to continue...")
 
 
+def print_context():
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    tokenized_val_ds = load_from_disk('./tokenized_random_data/val')
+    tokenized_val_random_ds = load_from_disk('./tokenized_random_data/val_random')
+
+    while True:
+        try:
+            index = int(input('\n\n\nEnter index: '))
+        except:
+            exit()
+
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[index]['label']])
+        # print("Original label 2: ", ORIGINAL_LABELS[val_labels[index]])
+        # print("Predicted label: ", ORIGINAL_LABELS[val_preds[index]])
+        print("\n\nInitial Text: ", tokenizer.decode(tokenized_val_ds[index]['input_ids'][0]))
+        print("\n\nRandom Text: ", tokenizer.decode(tokenized_val_random_ds[index]['input_ids'][0]))
+
+
 if __name__ == '__main__':
     # Parse arguments
     parse_arguments()
+
 
 
     if SET_SEEDS:
@@ -456,6 +480,10 @@ if __name__ == '__main__':
     train_data_random = load_from_disk(f'./tokenized_random_{test_str}data/train_random')
     test_data_random = load_from_disk(f'./tokenized_random_{test_str}data/test_random')
     val_data_random = load_from_disk(f'./tokenized_random_{test_str}data/val_random')
+
+     # Mode for only printing context
+    if PRINT_CONTEXT_MODE:
+        print_context()
 
     full_train_data = concatenate_helper(train_data, train_data_random)
     full_test_data = concatenate_helper(test_data, test_data_random)
