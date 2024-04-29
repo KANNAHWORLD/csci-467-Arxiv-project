@@ -16,11 +16,14 @@ from torch.nn.functional import softmax
 # to exist and be in the same directory as this script
 
 
-MODEL_NAME = './models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+# MODEL_NAME = 'bert-base-uncased'  #./models/bert_epochs_2_lr_1e-05_batch_4' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = "./models/bert_epochs_3_lr_1e-05_batch_4"
 DATASET_NAME = 'ccdv/arxiv-classification'
 TRAIN_MODEL = False
 PREPROCESS_DATA = False
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
+USE_ORIGINAL_LABELS = True
+DISPLAY_ERRORS = True
 
 def predict_proba(texts):
     tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
@@ -31,7 +34,7 @@ def predict_proba(texts):
     return probs.squeeze().detach().cpu().numpy()
 
 def fix_labels(instance):
-    classConversion = [0, 1, 1, 1, 0, 1, 1, 1, 1, 1, 0]
+    classConversion = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]
     instance['labels'] = classConversion[instance['label']]
     return instance
 
@@ -106,7 +109,7 @@ def analyze_errors(val_preds, val_labels):
     plt.ylabel('Number of Misclassifications')
     plt.title('Misclassifications by Original Label')
     # save plot
-    plt.savefig('misclassifications.png')
+    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_misclassifications.png')
 
 
 def display_errors(val_preds, val_labels):
@@ -127,45 +130,21 @@ def display_errors(val_preds, val_labels):
     explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
 
     for i in errors:
-        # print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-        # print("Predicted label: ", val_preds[i])
-        # print("Correct label: ", val_labels[i])
-        # print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
-        # print("Text from DS: ", original_val_ds[i]['text'][:1000])
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        print("Text from DS: ", original_val_ds[i]['text'][:1000])
 
-        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=500, labels=[val_preds[i], val_labels[i]])
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=1000)
 
-        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
-        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
-        plt.tight_layout()
-        plt.savefig(f'./longformer_lime/longformer_explanation_{i}_prediction.png')
-
-        plt.clf()
-
-        fig_2 = explanation.as_pyplot_figure(label=val_labels[i])
-        fig_2.text(0.5, 0.001, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
-        plt.tight_layout()
-        plt.savefig(f'./longformer_lime/errors/longformer_explanation_{i}_correct.png')
-
-        #input("Press Enter to continue...")
-    for i in correct:
-        # print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-        # print("Predicted label: ", val_preds[i])
-        # print("Correct label: ", val_labels[i])
-        # print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
-        # print("Text from DS: ", original_val_ds[i]['text'][:1000])
-
-        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=500, labels=[val_labels[i]])
-        
-        fig = explanation.as_pyplot_figure(label=val_labels[i])
-        fig.text(0.5, 0.001, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
-        plt.tight_layout()
-        plt.savefig(f'./longformer_lime/correct/longformer_explanation_{i}_correct.png')
-
-    
-
+        fig = explanation.as_pyplot_figure()
+        plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
 
 if __name__ == '__main__':
+
+
+    NUM_LABELS = 11 if USE_ORIGINAL_LABELS else 2
 
     parser = argparse.ArgumentParser()
 
@@ -192,7 +171,7 @@ if __name__ == '__main__':
     BATCH_SIZE = args.batch
     LEARNING_RATE = args.lr
     global model
-    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=NUM_LABELS)
     global tokenizer 
     tokenizer = AutoTokenizer.from_pretrained('bert-base-uncased')
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
@@ -234,16 +213,25 @@ if __name__ == '__main__':
     recall = metrics.recall_score(val_labels, val_preds, average='macro')
     f1 = metrics.f1_score(val_labels, val_preds, average='macro')
 
-    print("Num samples", len(val_loader) * BATCH_SIZE)
-    print("Num samples", len(val_labels))
-    print("Accuracy: ", accuracy)
-    print("Precision: ", precision)
-    print("Recall: ", recall)
-    print("F1: ", f1)
-    print("Params: ")
-    print("Epochs: ", NUM_EPOCHS)
-    print("Batch size: ", BATCH_SIZE)
-    print("Learning rate: ", LEARNING_RATE)
+    # Confusion matrix
+    cm = metrics.confusion_matrix(val_labels, val_preds)
+    disp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
+    disp.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
+    # plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_confusion_matrix.png')
 
-    analyze_errors(val_preds, val_labels)
-    display_errors(val_preds, val_labels)
+    file = open(f'bert_results/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_results.txt', 'w')
+    
+    with file as f:
+        print("Num samples", len(val_loader) * BATCH_SIZE, file=f)
+        print("Num samples", len(val_labels), file=f)
+        print("Accuracy: ", accuracy, file=f)
+        print("Precision: ", precision, file=f)
+        print("Recall: ", recall, file=f)
+        print("F1: ", f1, file=f)
+        print("Params: ", file=f)
+        print("Epochs: ", NUM_EPOCHS, file=f)
+        print("Batch size: ", BATCH_SIZE, file=f)
+        print("Learning rate: ", LEARNING_RATE, file=f)
+
+    analyze_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
+    display_errors(val_preds, val_labels) if DISPLAY_ERRORS else None

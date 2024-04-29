@@ -6,17 +6,23 @@ from torch.utils.data import DataLoader
 from torch.optim import AdamW
 from tqdm import tqdm
 from sklearn import metrics
+import matplotlib.pyplot as plt
+from lime.lime_text import LimeTextExplainer
+from torch.nn.functional import softmax
 
 ## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
 # to exist and be in the same directory as this script
 
-MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+# MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
+MODEL_NAME = './models/bert_epochs_3_lr_1e-05_batch_4'
 DATASET_NAME = 'ccdv/arxiv-classification'
-NUM_EPOCHS = 1
-BATCH_SIZE = 16
+NUM_EPOCHS = 3
+BATCH_SIZE = 4
 LEARNING_RATE = 1e-5
-TRAIN_MODEL = True
+LIME_SAMPLES = 1000
+TRAIN_MODEL = False
 PREPROCESS_DATA = False
+DISPLAY_ERRORS = True
 
 USE_ORIGINAL_LABELS = True 
 ORIGINAL_LABELS = ['math.AC', 'cs.CV', 'cs.AI', 'cs.SY', 'math.GR', 'cs.DS', 'cs.CE', 'cs.PL', 'cs.IT', 'cs.NE', 'math.ST']
@@ -29,6 +35,14 @@ def fix_labels(instance):
     
     instance['labels'] = classConversion[instance['label']]
     return instance
+
+def predict_proba(texts):
+    tokenized = tokenizer(texts, max_length=512, truncation=True, return_tensors='pt', padding='max_length')
+    with torch.no_grad():
+        inputs = {name: tensor.to(device) for name, tensor in tokenized.items()}
+        outputs = model(**inputs)
+        probs = softmax(outputs.logits, dim=-1)
+    return probs.squeeze().detach().cpu().numpy()
 
 def tokenize_batch(batch):
     return tokenizer(batch['text'], max_length=512, truncation=True, return_tensors='pt')
@@ -52,6 +66,92 @@ def load_process_data_from_hub():
     train_data.save_to_disk(f'./tokenized_{label_str}_data/train')
     test_data.save_to_disk(f'./tokenized_{label_str}_data/test')
     val_data.save_to_disk(f'./tokenized_{label_str}_data/val')
+
+def display_errors(val_preds, val_labels):
+    '''
+    Print out original labels and text for incorrect predictions, one at a time
+    Ask for user input to continue to next error
+    '''
+    global curr_label
+
+    errors = []
+    correct = []
+    for i, pred in enumerate(val_preds):
+        if pred != val_labels[i]:
+            errors.append(i)
+        else:
+            correct.append(i)
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    tokenized_val_ds = load_from_disk('./tokenized_data/val')
+
+    explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
+
+    print('\n\n------ ERRORS -------\n\n')
+    for i in errors:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
+        print("Text from DS: ", original_val_ds[i]['text'][:100])
+
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i], val_labels[i]])
+
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        # plt.savefig(f'explanations_random/errors/explanation_{i}_prediction.png')
+        plt.savefig(f'bert_graphs/incorrect/fig1/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+
+        plt.clf()
+
+        fig_2 = explanation.as_pyplot_figure(label=val_labels[i])
+        fig_2.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        # plt.savefig(f'explanations_random/errors/explanation_{i}_correct.png')
+        plt.savefig(f'bert_graphs/incorrect/fig2/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+
+
+    print('\n\n------ CORRECT -------\n\n')
+    for i in correct:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0][:300]))
+        print("Text from DS: ", original_val_ds[i]['text'][:300])
+
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i]])
+
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'bert_graphs/correct/fig1/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+        plt.clf()
+
+def analyze_errors(val_preds, val_labels):
+    '''
+    Generate plot of original labels for incorrect predictions
+    '''
+
+    errors = []
+    for i, pred in enumerate(val_preds):
+        if pred != val_labels[i]:
+            errors.append(i)
+    original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
+    
+    misclassifications = np.zeros(11)
+    for i in errors:
+        misclassifications[original_val_ds[i]['label']] += 1
+    
+    # plot histogram of misclassifications
+    # X-axis: original label text
+    # Y-axis: number of misclassifications
+    plt.figure(figsize=(10, 5))
+    plt.bar(ORIGINAL_LABELS, misclassifications)
+    plt.xlabel('Original Label')
+    plt.ylabel('Number of Misclassifications')
+    plt.title('Misclassifications by Original Label')
+    # save plot
+    plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_misclassifications.png')
 
 def train(train_loader, test_loader, val_loader, model, device):
 
@@ -88,6 +188,8 @@ if __name__ == '__main__':
     device = 'cuda' if torch.cuda.is_available() else 'cpu' #change to torch.device('mps') if running on mac
     model = model.to(device)
 
+
+
     if PREPROCESS_DATA:
         load_process_data_from_hub()
 
@@ -113,12 +215,22 @@ if __name__ == '__main__':
     val_labels = []
     val_preds = []
 
-    for batch in tqdm(test_loader):
+    for batch in tqdm(val_loader):
         batch = {key: batch[key].to(device).squeeze() for key in batch}
         with torch.no_grad():
             outputs = model(**batch)
         val_labels.extend(batch['labels'].cpu().numpy().tolist())
         val_preds.extend(torch.argmax(outputs.logits, dim=-1).cpu().numpy().tolist())
+
+    cm = metrics.confusion_matrix(val_labels, val_preds, normalize="true")
+    plt.figure(figsize=(12, 12))
+    cmp = metrics.ConfusionMatrixDisplay(confusion_matrix=cm, display_labels=ORIGINAL_LABELS)
+    
+    fig, ax = plt.subplots(figsize=(10,10))
+    cmp.plot(ax=ax)
+
+    plt.setp(ax.get_xticklabels(), rotation=45)
+    plt.savefig(f'confusion_matrix.png')
 
     accuracy = metrics.accuracy_score(val_labels, val_preds)
     precision = metrics.precision_score(val_labels, val_preds, average='macro')
@@ -131,3 +243,6 @@ if __name__ == '__main__':
     print("Precision: ", precision)
     print("Recall: ", recall)
     print("F1: ", f1)
+
+    analyze_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
+    display_errors(val_preds, val_labels) if DISPLAY_ERRORS else None
