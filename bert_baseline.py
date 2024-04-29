@@ -10,11 +10,11 @@ import matplotlib.pyplot as plt
 from lime.lime_text import LimeTextExplainer
 from torch.nn.functional import softmax
 
-## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data' and 'models'
+## Note: expects directories called 'tokenized_original_data', 'tokenized_binary_data', 'bert_graphs' and 'models'
 # to exist and be in the same directory as this script
 
 # MODEL_NAME = 'bert-base-uncased' # something like ./models/bert_epochs_1_lr_1e-05_batch_16 when loading trained model
-MODEL_NAME = './models/bert_epochs_3_lr_1e-05_batch_4'
+MODEL_NAME = 'r'
 DATASET_NAME = 'ccdv/arxiv-classification'
 NUM_EPOCHS = 3
 BATCH_SIZE = 4
