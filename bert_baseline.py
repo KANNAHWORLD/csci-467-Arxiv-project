@@ -67,32 +67,6 @@ def load_process_data_from_hub():
     test_data.save_to_disk(f'./tokenized_{label_str}_data/test')
     val_data.save_to_disk(f'./tokenized_{label_str}_data/val')
 
-# def display_errors(val_preds, val_labels):
-#     '''
-#     Print out original labels and text for incorrect predictions, one at a time
-#     Ask for user input to continue to next error
-#     '''
-#     errors = []
-#     for i, pred in enumerate(val_preds):
-#         if pred != val_labels[i]:
-#             errors.append(i)
-#     original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
-#     tokenized_val_ds = load_from_disk('./tokenized_data/val')
-
-#     explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
-
-#     for i in errors:
-#         print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-#         print("Predicted label: ", val_preds[i])
-#         print("Correct label: ", val_labels[i])
-#         print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]))
-#         print("Text from DS: ", original_val_ds[i]['text'][:1000])
-
-#         explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=1000)
-
-#         fig = explanation.as_pyplot_figure()
-#         plt.savefig(f'bert_graphs/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
-
 def display_errors(val_preds, val_labels):
     '''
     Print out original labels and text for incorrect predictions, one at a time
@@ -126,7 +100,7 @@ def display_errors(val_preds, val_labels):
         fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
         plt.tight_layout()
         # plt.savefig(f'explanations_random/errors/explanation_{i}_prediction.png')
-        plt.savefig(f'bert_graphs/fig1/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+        plt.savefig(f'bert_graphs/incorrect/fig1/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
 
         plt.clf()
 
@@ -134,25 +108,24 @@ def display_errors(val_preds, val_labels):
         fig_2.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
         plt.tight_layout()
         # plt.savefig(f'explanations_random/errors/explanation_{i}_correct.png')
-        plt.savefig(f'bert_graphs/fig2/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
+        plt.savefig(f'bert_graphs/incorrect/fig2/{LEARNING_RATE}_{NUM_EPOCHS}_{BATCH_SIZE}_explanation_{i}.png')
 
 
-    # print('\n\n------ CORRECT -------\n\n')
-    # for i in correct:
-    #     print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
-    #     print("Predicted label: ", val_preds[i])
-    #     print("Correct label: ", val_labels[i])
-    #     print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0][:300]))
-    #     print("Text from DS: ", original_val_ds[i]['text'][:300])
+    print('\n\n------ CORRECT -------\n\n')
+    for i in correct:
+        print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
+        print("Predicted label: ", val_preds[i])
+        print("Correct label: ", val_labels[i])
+        print("Text: ", tokenizer.decode(tokenized_val_ds[i]['input_ids'][0][:300]))
+        print("Text from DS: ", original_val_ds[i]['text'][:300])
 
-    #     explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i]])
+        explanation = explainer.explain_instance(tokenizer.decode(tokenized_val_ds[i]['input_ids'][0]), predict_proba, num_features=10, num_samples=LIME_SAMPLES, labels=[val_preds[i]])
 
-    #     fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
-    #     fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
-    #     plt.tight_layout()
-    #     plt.savefig(f'explanations_random/correct/explanation_{i}.png')
-
-    #     plt.clf()
+        fig_1 = explanation.as_pyplot_figure(label=val_preds[i])
+        fig_1.text(0.5, 0.01, f'Original label: {ORIGINAL_LABELS[val_labels[i]]}, Predicted label: {ORIGINAL_LABELS[val_preds[i]]}', ha='center', wrap=True, fontsize=12)
+        plt.tight_layout()
+        plt.savefig(f'explanations_random/correct/fig1/explanation_{i}.png')
+        plt.clf()
 
 def analyze_errors(val_preds, val_labels):
     '''
@@ -242,7 +215,7 @@ if __name__ == '__main__':
     val_labels = []
     val_preds = []
 
-    for batch in tqdm(test_loader):
+    for batch in tqdm(val_loader):
         batch = {key: batch[key].to(device).squeeze() for key in batch}
         with torch.no_grad():
             outputs = model(**batch)
