@@ -118,13 +118,16 @@ def display_errors(val_preds, val_labels):
     Ask for user input to continue to next error
     '''
     errors = []
+    correct = []
     for i, pred in enumerate(val_preds):
         if pred != val_labels[i]:
             errors.append(i)
+        else:
+            correct.append(i)
     original_val_ds = load_dataset(DATASET_NAME, 'no_ref', split='validation')
     tokenized_val_ds = load_from_disk('./tokenized_data/val')
 
-    explainer = LimeTextExplainer(class_names=['math', 'cs'])
+    explainer = LimeTextExplainer(class_names=ORIGINAL_LABELS)
 
     for i in errors:
         print("Original label: ", ORIGINAL_LABELS[original_val_ds[i]['label']])
