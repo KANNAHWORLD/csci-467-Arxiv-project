@@ -29,4 +29,4 @@ python bert_baseline_lime_args.py --input=input_1
 Use `bert_random.py` to run the BERT + Random method. This has almost identical functionalities with `bert_baseline.py`, with many of the same global variables to set. There is an additional hyperparameter (MLP hidden layer size), which can be modified either directly in the file or by using an input file with argument `hidden=<hidden layer size>`.
 
 ### Longformer
-Use `longformer.py` to run the Longformer method. This has similar functionalities to `bert_baseline.py`.
+Use `longformer.py` to run the Longformer method. This has similar functionalities to `bert_baseline.py`. Hyperparameters can only be modified using the input files as described above.
