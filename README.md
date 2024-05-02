@@ -28,5 +28,10 @@ python bert_baseline_lime_args.py --input=input_1
 ### BERT + Random
 Use `bert_random.py` to run the BERT + Random method. This has almost identical functionalities with `bert_baseline.py`, with many of the same global variables to set. There is an additional hyperparameter (MLP hidden layer size), which can be modified either directly in the file or by using an input file with argument `hidden=<hidden layer size>`.
 
+The `bert_random.py` file also has additional global flags to set, a few of which we will describe here:
+- `MLP_NAME`: Similar to `MODEL_NAME`, set to the name of the saved MLP if using a saved model. If training a new model (new hyperparams), then can leave blank.
+- `ERROR_ANALYSIS`: If set to `True`, runs the LIME explanation code on the val set, using `LIME_SAMPLES` as the number of samples.
+- `PRINT_CONTEXT_MODE`: when set to `True`, the script changes to act as a helper function for LIME explanations. Specifically, the user can enter the index of any example in the val set, and the script will output the corresponding initial context and random context. 
+
 ### Longformer
-Use `longformer.py` to run the Longformer method. This has similar functionalities to `bert_baseline.py`. Hyperparameters can only be modified using the input files as described above.
+Use `longformer.py` to run the Longformer method. This has similar functionalities to `bert_baseline.py`. Hyperparameters can only be modified using the input files as described above. The global flag for error analysis in this script is `VISUALIZE_ERRORS`.
